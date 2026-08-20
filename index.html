@@ -5,23 +5,53 @@
   <title>Nest</title>
 </head>
 <body>
-  <h1>Nest – Verbindungstest</h1>
-  <p id="status">Teste Verbindung...</p>
+  <h1>Nest</h1>
+
+  <div id="login-view">
+    <input type="email" id="email" placeholder="E-Mail">
+    <input type="password" id="password" placeholder="Passwort">
+    <button onclick="login()">Login</button>
+    <p id="login-status"></p>
+  </div>
+
+  <div id="app-view" style="display:none;">
+    <p id="welcome"></p>
+    <button onclick="logout()">Logout</button>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const SUPABASE_URL = "https://qanbxxbbngctucjbzfeb.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J";
+    const SUPABASE_URL = "DEINE_PROJECT_URL";
+    const SUPABASE_ANON_KEY = "DEIN_ANON_KEY";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function testConnection() {
-      const { data, error } = await client.from('households').select('name');
-      document.getElementById('status').textContent = error
-        ? "Fehler: " + error.message
-        : "Verbunden! Gefundene Haushalte: " + JSON.stringify(data);
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      document.getElementById('login-status').textContent = error ? "Fehler: " + error.message : "";
     }
 
-    testConnection();
+    async function logout() {
+      await client.auth.signOut();
+    }
+
+    function showApp(session) {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('app-view').style.display = 'block';
+      document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
+    }
+
+    function showLogin() {
+      document.getElementById('login-view').style.display = 'block';
+      document.getElementById('app-view').style.display = 'none';
+    }
+
+    // Reagiert automatisch auf Login/Logout, auch bei Seiten-Neuladen
+    client.auth.onAuthStateChange((event, session) => {
+      if (session) showApp(session);
+      else showLogin();
+    });
   </script>
 </body>
 </html>
