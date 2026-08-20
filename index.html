@@ -92,6 +92,17 @@
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       currentHouseholdId = await loadHouseholdId(session.user.id);
       loadItems();
+      subscribeToChanges();
+    }
+
+    function subscribeToChanges() {
+      client
+        .channel('shopping_items_changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'shopping_items', filter: `household_id=eq.${currentHouseholdId}` },
+          () => { loadItems(); }
+        )
+        .subscribe();
     }
 
     function showLogin() {
