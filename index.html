@@ -17,6 +17,20 @@
   <div id="app-view" style="display:none;">
     <p id="welcome"></p>
     <button onclick="logout()">Logout</button>
+
+    <h2>Artikel hinzufügen</h2>
+    <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
+    <input type="number" id="item-menge" placeholder="Menge" step="0.1">
+    <select id="item-einheit">
+      <option value="stueck">Stück</option>
+      <option value="gramm">Gramm</option>
+      <option value="kilogramm">Kilogramm</option>
+      <option value="liter">Liter</option>
+      <option value="milliliter">Milliliter</option>
+      <option value="packung">Packung</option>
+    </select>
+    <button onclick="addItem()">Hinzufügen</button>
+    <p id="add-status"></p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -24,6 +38,8 @@
     const SUPABASE_URL = "https://qanbxxbbngctucjbzfeb.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J";
     const client = supabase.createClient("https://qanbxxbbngctucjbzfeb.supabase.co", "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J");
+
+    let currentHouseholdId = null;
 
     async function login() {
       const email = document.getElementById('email').value;
@@ -36,10 +52,24 @@
       await client.auth.signOut();
     }
 
-    function showApp(session) {
+    async function loadHouseholdId(userId) {
+      const { data, error } = await client
+        .from('household_members')
+        .select('household_id')
+        .eq('user_id', userId)
+        .single();
+      if (error) {
+        console.error("Konnte household_id nicht laden:", error);
+        return null;
+      }
+      return data.household_id;
+    }
+
+    async function showApp(session) {
       document.getElementById('login-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
+      currentHouseholdId = await loadHouseholdId(session.user.id);
     }
 
     function showLogin() {
@@ -47,11 +77,40 @@
       document.getElementById('app-view').style.display = 'none';
     }
 
-    // Reagiert automatisch auf Login/Logout, auch bei Seiten-Neuladen
     client.auth.onAuthStateChange((event, session) => {
       if (session) showApp(session);
       else showLogin();
     });
+
+    async function addItem() {
+      const name = document.getElementById('item-name').value.trim();
+      const menge = document.getElementById('item-menge').value;
+      const einheit = document.getElementById('item-einheit').value;
+      const statusEl = document.getElementById('add-status');
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { data: { user } } = await client.auth.getUser();
+
+      const { error } = await client.from('shopping_items').insert({
+        household_id: currentHouseholdId,
+        name: name,
+        menge: menge ? parseFloat(menge) : null,
+        einheit: einheit,
+        created_by: user.id
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
+        document.getElementById('item-name').value = "";
+        document.getElementById('item-menge').value = "";
+      }
+    }
   </script>
 </body>
 </html>
