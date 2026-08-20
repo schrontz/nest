@@ -31,15 +31,23 @@
     </select>
     <button onclick="addItem()">Hinzufügen</button>
     <p id="add-status"></p>
+
+    <h2>Einkaufsliste</h2>
+    <ul id="item-list"></ul>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  const SUPABASE_URL = "https://qanbxxbbngctucjbzfeb.supabase.co";
+    const SUPABASE_URL = "https://qanbxxbbngctucjbzfeb.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J";
     const client = supabase.createClient("https://qanbxxbbngctucjbzfeb.supabase.co", "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J");
-    
+
     let currentHouseholdId = null;
+
+    const EINHEIT_LABELS = {
+      stueck: "Stück", gramm: "g", kilogramm: "kg",
+      liter: "l", milliliter: "ml", packung: "Packung"
+    };
 
     async function login() {
       const email = document.getElementById('email').value;
@@ -70,6 +78,7 @@
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       currentHouseholdId = await loadHouseholdId(session.user.id);
+      loadItems();
     }
 
     function showLogin() {
@@ -109,7 +118,52 @@
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
+        loadItems();
       }
+    }
+
+    async function loadItems() {
+      const { data, error } = await client
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Fehler beim Laden:", error);
+        return;
+      }
+
+      const listEl = document.getElementById('item-list');
+      listEl.innerHTML = data.map(item => `
+        <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
+                 onchange="toggleStatus('${item.id}', this.checked)">
+          ${item.name}
+          ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+          <button onclick="deleteItem('${item.id}')">löschen</button>
+        </li>
+      `).join('');
+    }
+
+    async function toggleStatus(id, isChecked) {
+      const neuerStatus = isChecked ? 'gekauft' : 'offen';
+      const { error } = await client
+        .from('shopping_items')
+        .update({ status: neuerStatus })
+        .eq('id', id);
+
+      if (error) console.error("Fehler beim Ändern:", error);
+      loadItems();
+    }
+
+    async function deleteItem(id) {
+      const { error } = await client
+        .from('shopping_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) console.error("Fehler beim Löschen:", error);
+      loadItems();
     }
   </script>
 </body>
