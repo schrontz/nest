@@ -33,7 +33,12 @@
     <p id="add-status"></p>
 
     <h2>Einkaufsliste</h2>
-    <ul id="item-list"></ul>
+    <ul id="item-list-offen"></ul>
+
+    <p>
+      <a href="#" id="toggle-gekauft-link" onclick="toggleGekauft(); return false;">Gekauft anzeigen (0)</a>
+    </p>
+    <ul id="item-list-gekauft" style="display:none;"></ul>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -122,6 +127,32 @@
       }
     }
 
+    let showGekauft = false;
+
+    function toggleGekauft() {
+      showGekauft = !showGekauft;
+      document.getElementById('item-list-gekauft').style.display = showGekauft ? 'block' : 'none';
+      updateToggleLabel();
+    }
+
+    function updateToggleLabel() {
+      const count = document.getElementById('item-list-gekauft').children.length;
+      const link = document.getElementById('toggle-gekauft-link');
+      link.textContent = (showGekauft ? "Gekauft ausblenden (" : "Gekauft anzeigen (") + count + ")";
+    }
+
+    function renderItem(item) {
+      return `
+        <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
+                 onchange="toggleStatus('${item.id}', this.checked)">
+          ${item.name}
+          ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+          <button onclick="deleteItem('${item.id}')">löschen</button>
+        </li>
+      `;
+    }
+
     async function loadItems() {
       const { data, error } = await client
         .from('shopping_items')
@@ -133,16 +164,13 @@
         return;
       }
 
-      const listEl = document.getElementById('item-list');
-      listEl.innerHTML = data.map(item => `
-        <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
-          <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
-                 onchange="toggleStatus('${item.id}', this.checked)">
-          ${item.name}
-          ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
-          <button onclick="deleteItem('${item.id}')">löschen</button>
-        </li>
-      `).join('');
+      const offen = data.filter(item => item.status === 'offen');
+      const gekauft = data.filter(item => item.status === 'gekauft');
+
+      document.getElementById('item-list-offen').innerHTML = offen.map(renderItem).join('');
+      document.getElementById('item-list-gekauft').innerHTML = gekauft.map(renderItem).join('');
+
+      updateToggleLabel();
     }
 
     async function toggleStatus(id, isChecked) {
