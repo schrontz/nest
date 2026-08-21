@@ -18,8 +18,23 @@
   <div id="login-view">
     <input type="email" id="email" placeholder="E-Mail">
     <input type="password" id="password" placeholder="Passwort">
-    <button onclick="login()">Login</button>
+    <button id="auth-submit-btn" onclick="submitAuth()">Login</button>
     <p id="login-status"></p>
+    <p><a href="#" id="auth-mode-toggle" onclick="toggleAuthMode(); return false;">Noch keinen Account? Registrieren</a></p>
+  </div>
+
+  <div id="onboarding-view" style="display:none;">
+    <h2>Haushalt erstellen</h2>
+    <input type="text" id="new-household-name" placeholder="Name (z.B. Unsere WG)">
+    <button onclick="createHousehold()">Haushalt erstellen</button>
+    <p id="create-household-status"></p>
+
+    <h2>Oder: Haushalt beitreten</h2>
+    <input type="text" id="join-code-input" placeholder="Code eingeben">
+    <button onclick="joinHousehold()">Beitreten</button>
+    <p id="join-household-status"></p>
+
+    <button onclick="logout()">Logout</button>
   </div>
 
   <div id="app-view" style="display:none;">
@@ -64,6 +79,18 @@
       <p id="welcome"></p>
       <button onclick="logout()">Logout</button>
 
+      <h2>Haushalt</h2>
+      <p>
+        <span id="household-name-display" class="item-name clickable" onclick="startEditHousehold()"></span>
+      </p>
+      <div id="household-edit-form" style="display:none;">
+        <input type="text" id="household-name-input">
+        <button onclick="saveHouseholdName()">Speichern</button>
+        <button onclick="cancelEditHousehold()">Abbrechen</button>
+      </div>
+      <p>Beitritts-Code: <strong id="household-join-code"></strong></p>
+      <img id="household-qr" alt="QR-Code zum Beitreten">
+
       <h2>Läden</h2>
       <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
       <input type="text" id="store-address" placeholder="Adresse (optional)">
@@ -88,11 +115,30 @@
       liter: "l", milliliter: "ml", packung: "Packung"
     };
 
-    async function login() {
+    let authMode = 'login';
+    let currentSession = null;
+
+    function toggleAuthMode() {
+      authMode = authMode === 'login' ? 'register' : 'login';
+      document.getElementById('auth-submit-btn').textContent = authMode === 'login' ? 'Login' : 'Registrieren';
+      document.getElementById('auth-mode-toggle').textContent = authMode === 'login'
+        ? 'Noch keinen Account? Registrieren'
+        : 'Schon registriert? Login';
+      document.getElementById('login-status').textContent = '';
+    }
+
+    async function submitAuth() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      document.getElementById('login-status').textContent = error ? "Fehler: " + error.message : "";
+      const statusEl = document.getElementById('login-status');
+
+      if (authMode === 'login') {
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        statusEl.textContent = error ? "Fehler: " + error.message : "";
+      } else {
+        const { error } = await client.auth.signUp({ email, password });
+        statusEl.textContent = error ? "Fehler: " + error.message : "Konto erstellt!";
+      }
     }
 
     async function logout() {
@@ -104,12 +150,12 @@
         .from('household_members')
         .select('household_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       if (error) {
         console.error("Konnte household_id nicht laden:", error);
         return null;
       }
-      return data.household_id;
+      return data ? data.household_id : null;
     }
 
     let storesById = {};
@@ -250,12 +296,19 @@
 
     async function showApp(session) {
       document.getElementById('login-view').style.display = 'none';
+      document.getElementById('onboarding-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
-      currentHouseholdId = await loadHouseholdId(session.user.id);
       showTab('liste');
       loadStores();
+      loadHousehold();
       subscribeToChanges();
+    }
+
+    function showOnboarding() {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('app-view').style.display = 'none';
+      document.getElementById('onboarding-view').style.display = 'block';
     }
 
     function subscribeToChanges() {
@@ -270,13 +323,112 @@
 
     function showLogin() {
       document.getElementById('login-view').style.display = 'block';
+      document.getElementById('onboarding-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'none';
     }
 
-    client.auth.onAuthStateChange((event, session) => {
-      if (session) showApp(session);
-      else showLogin();
+    client.auth.onAuthStateChange(async (event, session) => {
+      currentSession = session;
+      if (session) {
+        currentHouseholdId = await loadHouseholdId(session.user.id);
+        if (currentHouseholdId) {
+          showApp(session);
+        } else {
+          showOnboarding();
+        }
+      } else {
+        showLogin();
+      }
     });
+
+    async function createHousehold() {
+      const nameEl = document.getElementById('new-household-name');
+      const name = nameEl.value.trim();
+      const statusEl = document.getElementById('create-household-status');
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { data, error } = await client.rpc('create_household', { household_name: name });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+        return;
+      }
+
+      currentHouseholdId = data[0].id;
+      showApp(currentSession);
+    }
+
+    async function joinHousehold() {
+      const codeEl = document.getElementById('join-code-input');
+      const code = codeEl.value.trim();
+      const statusEl = document.getElementById('join-household-status');
+
+      if (!code) {
+        statusEl.textContent = "Bitte einen Code eingeben.";
+        return;
+      }
+
+      const { data, error } = await client.rpc('join_household_by_code', { code: code });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+        return;
+      }
+
+      currentHouseholdId = data;
+      showApp(currentSession);
+    }
+
+    let currentHousehold = null;
+
+    async function loadHousehold() {
+      const { data, error } = await client
+        .from('households')
+        .select('*')
+        .eq('id', currentHouseholdId)
+        .single();
+
+      if (error) {
+        console.error("Fehler beim Laden des Haushalts:", error);
+        return;
+      }
+
+      currentHousehold = data;
+      renderHousehold();
+    }
+
+    function renderHousehold() {
+      document.getElementById('household-name-display').textContent = currentHousehold.name;
+      document.getElementById('household-join-code').textContent = currentHousehold.join_code;
+      document.getElementById('household-qr').src =
+        `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentHousehold.join_code)}`;
+    }
+
+    function startEditHousehold() {
+      document.getElementById('household-name-input').value = currentHousehold.name;
+      document.getElementById('household-edit-form').style.display = 'block';
+    }
+
+    function cancelEditHousehold() {
+      document.getElementById('household-edit-form').style.display = 'none';
+    }
+
+    async function saveHouseholdName() {
+      const name = document.getElementById('household-name-input').value.trim();
+      if (!name) return;
+
+      const { error } = await client.from('households').update({ name: name }).eq('id', currentHouseholdId);
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      document.getElementById('household-edit-form').style.display = 'none';
+      loadHousehold();
+    }
 
     async function addItem() {
       const name = document.getElementById('item-name').value.trim();
