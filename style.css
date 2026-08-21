@@ -170,7 +170,7 @@ h3:first-child {
   width: 100%;
   background: var(--color-surface);
   color: var(--color-secondary-dark);
-  border: 2px solid var(--color-primary-dark);
+  border: none;
   border-radius: 10px;
   padding: 0.7rem 0.9rem;
   font-size: 1rem;
