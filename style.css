@@ -217,13 +217,6 @@ li.editing input, li.editing select {
   text-decoration: underline;
 }
 
-#household-qr {
-  width: 150px;
-  height: 150px;
-  border-radius: 8px;
-  margin-top: 0.5rem;
-}
-
 .store-address {
   color: var(--color-muted);
   font-weight: 400;
