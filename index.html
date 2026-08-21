@@ -29,25 +29,27 @@
     </nav>
 
     <div id="tab-liste" class="tab-panel">
-      <p>
-        <a href="#" id="toggle-add-link" onclick="toggleAddForm(); return false;">+ Artikel hinzufügen</a>
-      </p>
-      <div id="add-form" style="display:none;">
-        <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
-        <input type="number" id="item-menge" placeholder="Menge" step="0.1">
-        <select id="item-einheit">
-          <option value="stueck">Stück</option>
-          <option value="gramm">Gramm</option>
-          <option value="kilogramm">Kilogramm</option>
-          <option value="liter">Liter</option>
-          <option value="milliliter">Milliliter</option>
-          <option value="packung">Packung</option>
-        </select>
-        <select id="item-store">
-          <option value="">– kein Laden –</option>
-        </select>
-        <button onclick="addItem()">Hinzufügen</button>
-        <p id="add-status"></p>
+      <div class="add-card">
+        <p>
+          <a href="#" id="toggle-add-link" onclick="toggleAddForm(); return false;">+ Artikel hinzufügen</a>
+        </p>
+        <div id="add-form" style="display:none;">
+          <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
+          <input type="number" id="item-menge" placeholder="Menge" step="0.1">
+          <select id="item-einheit">
+            <option value="stueck">Stück</option>
+            <option value="gramm">Gramm</option>
+            <option value="kilogramm">Kilogramm</option>
+            <option value="liter">Liter</option>
+            <option value="milliliter">Milliliter</option>
+            <option value="packung">Packung</option>
+          </select>
+          <select id="item-store">
+            <option value="">– kein Laden –</option>
+          </select>
+          <button onclick="addItem()">Hinzufügen</button>
+          <p id="add-status"></p>
+        </div>
       </div>
 
       <h2>Einkaufsliste</h2>
