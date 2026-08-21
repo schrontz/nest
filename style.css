@@ -217,6 +217,13 @@ li.editing input, li.editing select {
   text-decoration: underline;
 }
 
+.store-address {
+  color: var(--color-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 #add-status, #login-status, #store-status {
   font-size: 0.85rem;
   color: var(--color-secondary-dark);
