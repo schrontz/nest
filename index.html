@@ -30,9 +30,7 @@
 
     <div id="tab-liste" class="tab-panel">
       <div class="add-card">
-        <p>
-          <a href="#" id="toggle-add-link" onclick="toggleAddForm(); return false;">+ Artikel hinzufügen</a>
-        </p>
+        <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="toggleAddForm()">+ Artikel hinzufügen</button>
         <div id="add-form" style="display:none;">
           <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
           <input type="number" id="item-menge" placeholder="Menge" step="0.1">
