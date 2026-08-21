@@ -28,23 +28,27 @@
       <button class="tab-btn" id="tab-btn-einstellungen" onclick="showTab('einstellungen')">Einstellungen</button>
     </nav>
 
-    <div id="tab-liste">
-      <h2>Artikel hinzufügen</h2>
-      <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
-      <input type="number" id="item-menge" placeholder="Menge" step="0.1">
-      <select id="item-einheit">
-        <option value="stueck">Stück</option>
-        <option value="gramm">Gramm</option>
-        <option value="kilogramm">Kilogramm</option>
-        <option value="liter">Liter</option>
-        <option value="milliliter">Milliliter</option>
-        <option value="packung">Packung</option>
-      </select>
-      <select id="item-store">
-        <option value="">– kein Laden –</option>
-      </select>
-      <button onclick="addItem()">Hinzufügen</button>
-      <p id="add-status"></p>
+    <div id="tab-liste" class="tab-panel">
+      <p>
+        <a href="#" id="toggle-add-link" onclick="toggleAddForm(); return false;">+ Artikel hinzufügen</a>
+      </p>
+      <div id="add-form" style="display:none;">
+        <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
+        <input type="number" id="item-menge" placeholder="Menge" step="0.1">
+        <select id="item-einheit">
+          <option value="stueck">Stück</option>
+          <option value="gramm">Gramm</option>
+          <option value="kilogramm">Kilogramm</option>
+          <option value="liter">Liter</option>
+          <option value="milliliter">Milliliter</option>
+          <option value="packung">Packung</option>
+        </select>
+        <select id="item-store">
+          <option value="">– kein Laden –</option>
+        </select>
+        <button onclick="addItem()">Hinzufügen</button>
+        <p id="add-status"></p>
+      </div>
 
       <h2>Einkaufsliste</h2>
       <div id="item-list-offen"></div>
@@ -55,7 +59,7 @@
       <ul id="item-list-gekauft" style="display:none;"></ul>
     </div>
 
-    <div id="tab-einstellungen" style="display:none;">
+    <div id="tab-einstellungen" class="tab-panel" style="display:none;">
       <h2>Account</h2>
       <p id="welcome"></p>
       <button onclick="logout()">Logout</button>
@@ -227,6 +231,13 @@
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
       }
+    }
+
+    function toggleAddForm() {
+      const formEl = document.getElementById('add-form');
+      const istOffen = formEl.style.display !== 'none';
+      formEl.style.display = istOffen ? 'none' : 'block';
+      document.getElementById('toggle-add-link').textContent = istOffen ? "+ Artikel hinzufügen" : "– Formular schließen";
     }
 
     let showGekauft = false;
