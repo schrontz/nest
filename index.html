@@ -23,39 +23,49 @@
   </div>
 
   <div id="app-view" style="display:none;">
-    <p id="welcome"></p>
-    <button onclick="logout()">Logout</button>
+    <nav class="tabs">
+      <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
+      <button class="tab-btn" id="tab-btn-einstellungen" onclick="showTab('einstellungen')">Einstellungen</button>
+    </nav>
 
-    <h2>Artikel hinzufügen</h2>
-    <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
-    <input type="number" id="item-menge" placeholder="Menge" step="0.1">
-    <select id="item-einheit">
-      <option value="stueck">Stück</option>
-      <option value="gramm">Gramm</option>
-      <option value="kilogramm">Kilogramm</option>
-      <option value="liter">Liter</option>
-      <option value="milliliter">Milliliter</option>
-      <option value="packung">Packung</option>
-    </select>
-    <select id="item-store">
-      <option value="">– kein Laden –</option>
-    </select>
-    <button onclick="addItem()">Hinzufügen</button>
-    <p id="add-status"></p>
+    <div id="tab-liste">
+      <h2>Artikel hinzufügen</h2>
+      <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
+      <input type="number" id="item-menge" placeholder="Menge" step="0.1">
+      <select id="item-einheit">
+        <option value="stueck">Stück</option>
+        <option value="gramm">Gramm</option>
+        <option value="kilogramm">Kilogramm</option>
+        <option value="liter">Liter</option>
+        <option value="milliliter">Milliliter</option>
+        <option value="packung">Packung</option>
+      </select>
+      <select id="item-store">
+        <option value="">– kein Laden –</option>
+      </select>
+      <button onclick="addItem()">Hinzufügen</button>
+      <p id="add-status"></p>
 
-    <h2>Läden</h2>
-    <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
-    <button onclick="addStore()">Laden hinzufügen</button>
-    <p id="store-status"></p>
-    <ul id="store-list"></ul>
+      <h2>Einkaufsliste</h2>
+      <div id="item-list-offen"></div>
 
-    <h2>Einkaufsliste</h2>
-    <div id="item-list-offen"></div>
+      <p>
+        <a href="#" id="toggle-gekauft-link" onclick="toggleGekauft(); return false;">Gekauft anzeigen (0)</a>
+      </p>
+      <ul id="item-list-gekauft" style="display:none;"></ul>
+    </div>
 
-    <p>
-      <a href="#" id="toggle-gekauft-link" onclick="toggleGekauft(); return false;">Gekauft anzeigen (0)</a>
-    </p>
-    <ul id="item-list-gekauft" style="display:none;"></ul>
+    <div id="tab-einstellungen" style="display:none;">
+      <h2>Account</h2>
+      <p id="welcome"></p>
+      <button onclick="logout()">Logout</button>
+
+      <h2>Läden</h2>
+      <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
+      <button onclick="addStore()">Laden hinzufügen</button>
+      <p id="store-status"></p>
+      <ul id="store-list"></ul>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -150,11 +160,19 @@
       }
     }
 
+    function showTab(tab) {
+      document.getElementById('tab-liste').style.display = tab === 'liste' ? 'block' : 'none';
+      document.getElementById('tab-einstellungen').style.display = tab === 'einstellungen' ? 'block' : 'none';
+      document.getElementById('tab-btn-liste').classList.toggle('active', tab === 'liste');
+      document.getElementById('tab-btn-einstellungen').classList.toggle('active', tab === 'einstellungen');
+    }
+
     async function showApp(session) {
       document.getElementById('login-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       currentHouseholdId = await loadHouseholdId(session.user.id);
+      showTab('liste');
       loadStores();
       subscribeToChanges();
     }
