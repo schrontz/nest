@@ -66,6 +66,7 @@
 
       <h2>Läden</h2>
       <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
+      <input type="text" id="store-address" placeholder="Adresse (optional)">
       <button onclick="addStore()">Laden hinzufügen</button>
       <p id="store-status"></p>
       <ul id="store-list"></ul>
@@ -149,7 +150,8 @@
       if (store.id === editingStoreId) {
         return `
           <li class="editing">
-            <input type="text" id="edit-store-name-${store.id}" value="${escapeHtml(store.name)}">
+            <input type="text" id="edit-store-name-${store.id}" value="${escapeHtml(store.name)}" placeholder="Name">
+            <input type="text" id="edit-store-address-${store.id}" value="${escapeHtml(store.address || '')}" placeholder="Adresse (optional)">
             <div class="edit-actions">
               <button onclick="saveEditStore('${store.id}')">Speichern</button>
               <button onclick="cancelEditStore()">Abbrechen</button>
@@ -159,7 +161,10 @@
       }
       return `
         <li>
-          <span class="item-name clickable" onclick="startEditStore('${store.id}')">${store.name}</span>
+          <span class="item-name clickable" onclick="startEditStore('${store.id}')">
+            ${store.name}
+            ${store.address ? `<br><small class="store-address">${store.address}</small>` : ''}
+          </span>
           <button onclick="deleteStore('${store.id}')">löschen</button>
         </li>
       `;
@@ -177,12 +182,14 @@
 
     async function saveEditStore(id) {
       const nameEl = document.getElementById('edit-store-name-' + id);
+      const addressEl = document.getElementById('edit-store-address-' + id);
       const name = nameEl.value.trim();
+      const address = addressEl.value.trim();
       if (!name) return;
 
       const { error } = await client
         .from('stores')
-        .update({ name: name })
+        .update({ name: name, address: address || null })
         .eq('id', id);
 
       if (error) {
@@ -208,7 +215,9 @@
 
     async function addStore() {
       const nameEl = document.getElementById('store-name');
+      const addressEl = document.getElementById('store-address');
       const name = nameEl.value.trim();
+      const address = addressEl.value.trim();
       const statusEl = document.getElementById('store-status');
 
       if (!name) {
@@ -218,7 +227,8 @@
 
       const { error } = await client.from('stores').insert({
         household_id: currentHouseholdId,
-        name: name
+        name: name,
+        address: address || null
       });
 
       if (error) {
@@ -226,6 +236,7 @@
       } else {
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         nameEl.value = "";
+        addressEl.value = "";
         loadStores();
       }
     }
