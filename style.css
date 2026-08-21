@@ -116,7 +116,40 @@ li button:hover {
   text-decoration: none;
 }
 
-#add-status, #login-status {
+h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+  margin: 1rem 0 0.4rem;
+}
+
+h3:first-child {
+  margin-top: 0;
+}
+
+li.editing {
+  display: block;
+}
+
+li.editing input, li.editing select {
+  margin-bottom: 0.4rem;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.item-name.clickable {
+  cursor: pointer;
+}
+
+.item-name.clickable:hover {
+  text-decoration: underline;
+}
+
+#add-status, #login-status, #store-status {
   font-size: 0.85rem;
   color: var(--color-secondary-dark);
   min-height: 1.2em;
