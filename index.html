@@ -37,11 +37,20 @@
       <option value="milliliter">Milliliter</option>
       <option value="packung">Packung</option>
     </select>
+    <select id="item-store">
+      <option value="">– kein Laden –</option>
+    </select>
     <button onclick="addItem()">Hinzufügen</button>
     <p id="add-status"></p>
 
+    <h2>Läden</h2>
+    <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
+    <button onclick="addStore()">Laden hinzufügen</button>
+    <p id="store-status"></p>
+    <ul id="store-list"></ul>
+
     <h2>Einkaufsliste</h2>
-    <ul id="item-list-offen"></ul>
+    <div id="item-list-offen"></div>
 
     <p>
       <a href="#" id="toggle-gekauft-link" onclick="toggleGekauft(); return false;">Gekauft anzeigen (0)</a>
@@ -56,6 +65,8 @@
     const client = supabase.createClient("https://qanbxxbbngctucjbzfeb.supabase.co", "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J");
 
     let currentHouseholdId = null;
+    let editingItemId = null;
+    let allItems = [];
 
     const EINHEIT_LABELS = {
       stueck: "Stück", gramm: "g", kilogramm: "kg",
@@ -86,12 +97,65 @@
       return data.household_id;
     }
 
+    let storesById = {};
+
+    async function loadStores() {
+      const { data, error } = await client
+        .from('stores')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error("Fehler beim Laden der Läden:", error);
+        return;
+      }
+
+      storesById = {};
+      data.forEach(store => { storesById[store.id] = store.name; });
+
+      document.getElementById('store-list').innerHTML = data
+        .map(store => `<li>${store.name}</li>`)
+        .join('');
+
+      const selectEl = document.getElementById('item-store');
+      const bisherigeAuswahl = selectEl.value;
+      selectEl.innerHTML = '<option value="">– kein Laden –</option>' +
+        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+      selectEl.value = bisherigeAuswahl;
+
+      loadItems();
+    }
+
+    async function addStore() {
+      const nameEl = document.getElementById('store-name');
+      const name = nameEl.value.trim();
+      const statusEl = document.getElementById('store-status');
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { error } = await client.from('stores').insert({
+        household_id: currentHouseholdId,
+        name: name
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
+        nameEl.value = "";
+        loadStores();
+      }
+    }
+
     async function showApp(session) {
       document.getElementById('login-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       currentHouseholdId = await loadHouseholdId(session.user.id);
-      loadItems();
+      loadStores();
       subscribeToChanges();
     }
 
@@ -119,6 +183,7 @@
       const name = document.getElementById('item-name').value.trim();
       const menge = document.getElementById('item-menge').value;
       const einheit = document.getElementById('item-einheit').value;
+      const storeId = document.getElementById('item-store').value;
       const statusEl = document.getElementById('add-status');
 
       if (!name) {
@@ -133,6 +198,7 @@
         name: name,
         menge: menge ? parseFloat(menge) : null,
         einheit: einheit,
+        store_id: storeId || null,
         created_by: user.id
       });
 
@@ -142,7 +208,6 @@
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
-        loadItems();
       }
     }
 
@@ -160,16 +225,111 @@
       link.textContent = (showGekauft ? "Gekauft ausblenden (" : "Gekauft anzeigen (") + count + ")";
     }
 
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function einheitOptions(selected) {
+      return Object.entries(EINHEIT_LABELS).map(([val, label]) =>
+        `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
+      ).join('');
+    }
+
+    function storeOptions(selectedId) {
+      const leer = `<option value="">– kein Laden –</option>`;
+      const optionen = Object.entries(storesById).map(([id, name]) =>
+        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
+      ).join('');
+      return leer + optionen;
+    }
+
+    function startEdit(id) {
+      editingItemId = id;
+      render();
+    }
+
+    function cancelEdit() {
+      editingItemId = null;
+      render();
+    }
+
+    async function saveEdit(id) {
+      const name = document.getElementById('edit-name-' + id).value.trim();
+      const menge = document.getElementById('edit-menge-' + id).value;
+      const einheit = document.getElementById('edit-einheit-' + id).value;
+      const storeId = document.getElementById('edit-store-' + id).value;
+
+      if (!name) return;
+
+      const { error } = await client
+        .from('shopping_items')
+        .update({
+          name: name,
+          menge: menge ? parseFloat(menge) : null,
+          einheit: einheit,
+          store_id: storeId || null
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingItemId = null;
+    }
+
     function renderItem(item) {
+      if (item.id === editingItemId) {
+        return `
+          <li class="editing">
+            <input type="text" id="edit-name-${item.id}" value="${escapeHtml(item.name)}">
+            <input type="number" id="edit-menge-${item.id}" value="${item.menge ?? ''}" step="0.1" placeholder="Menge">
+            <select id="edit-einheit-${item.id}">${einheitOptions(item.einheit)}</select>
+            <select id="edit-store-${item.id}">${storeOptions(item.store_id)}</select>
+            <div class="edit-actions">
+              <button onclick="saveEdit('${item.id}')">Speichern</button>
+              <button onclick="cancelEdit()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+
+      const editable = item.status === 'offen';
+      const nameClass = editable ? 'item-name clickable' : 'item-name';
+      const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
+
       return `
         <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
                  onchange="toggleStatus('${item.id}', this.checked)">
-          ${item.name}
-          ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+          <span class="${nameClass}"${nameClick}>
+            ${item.name}
+            ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+          </span>
           <button onclick="deleteItem('${item.id}')">löschen</button>
         </li>
       `;
+    }
+
+    function renderGroupedByStore(items) {
+      const ohneLaden = "Ohne Laden";
+      const gruppen = {};
+      items.forEach(item => {
+        const ladenName = item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden;
+        if (!gruppen[ladenName]) gruppen[ladenName] = [];
+        gruppen[ladenName].push(item);
+      });
+
+      const ladenNamen = Object.keys(gruppen).sort((a, b) => {
+        if (a === ohneLaden) return 1;
+        if (b === ohneLaden) return -1;
+        return a.localeCompare(b);
+      });
+
+      return ladenNamen.map(ladenName => `
+        <h3>${ladenName}</h3>
+        <ul>${gruppen[ladenName].map(renderItem).join('')}</ul>
+      `).join('');
     }
 
     async function loadItems() {
@@ -183,10 +343,15 @@
         return;
       }
 
-      const offen = data.filter(item => item.status === 'offen');
-      const gekauft = data.filter(item => item.status === 'gekauft');
+      allItems = data;
+      render();
+    }
 
-      document.getElementById('item-list-offen').innerHTML = offen.map(renderItem).join('');
+    function render() {
+      const offen = allItems.filter(item => item.status === 'offen');
+      const gekauft = allItems.filter(item => item.status === 'gekauft');
+
+      document.getElementById('item-list-offen').innerHTML = renderGroupedByStore(offen);
       document.getElementById('item-list-gekauft').innerHTML = gekauft.map(renderItem).join('');
 
       updateToggleLabel();
@@ -200,7 +365,6 @@
         .eq('id', id);
 
       if (error) console.error("Fehler beim Ändern:", error);
-      loadItems();
     }
 
     async function deleteItem(id) {
@@ -210,7 +374,6 @@
         .eq('id', id);
 
       if (error) console.error("Fehler beim Löschen:", error);
-      loadItems();
     }
   </script>
 </body>
