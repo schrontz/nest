@@ -89,7 +89,6 @@
         <button onclick="cancelEditHousehold()">Abbrechen</button>
       </div>
       <p>Beitritts-Code: <strong id="household-join-code"></strong></p>
-      <img id="household-qr" alt="QR-Code zum Beitreten">
 
       <h2>Läden</h2>
       <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
@@ -404,8 +403,6 @@
     function renderHousehold() {
       document.getElementById('household-name-display').textContent = currentHousehold.name;
       document.getElementById('household-join-code').textContent = currentHousehold.join_code;
-      document.getElementById('household-qr').src =
-        `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentHousehold.join_code)}`;
     }
 
     function startEditHousehold() {
