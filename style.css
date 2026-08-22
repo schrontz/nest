@@ -133,6 +133,48 @@ h3:first-child {
   margin-top: 0;
 }
 
+.app-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.app-header .tabs {
+  flex: 1;
+}
+
+#settings-btn {
+  background: var(--color-surface);
+  color: var(--color-secondary-dark);
+  border-radius: 10px 10px 0 0;
+  padding: 0.65rem 0.9rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+#settings-btn:hover {
+  background: #f0f5f2;
+}
+
+.settings-panel {
+  position: relative;
+}
+
+.settings-close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  background: transparent;
+  color: var(--color-secondary-dark);
+  padding: 0.3rem 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.settings-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .tabs {
   display: flex;
   gap: 2px;
