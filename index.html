@@ -39,10 +39,13 @@
   </div>
 
   <div id="app-view" style="display:none;">
-    <nav class="tabs">
-      <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
-      <button class="tab-btn" id="tab-btn-einstellungen" onclick="showTab('einstellungen')">Einstellungen</button>
-    </nav>
+    <div class="app-header">
+      <nav class="tabs">
+        <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
+        <button class="tab-btn" id="tab-btn-aufgaben" onclick="showTab('aufgaben')">Aufgaben</button>
+      </nav>
+      <button id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
+    </div>
 
     <div id="tab-liste" class="tab-panel">
       <div class="add-card">
@@ -78,7 +81,13 @@
       <ul id="item-list-gekauft" style="display:none;"></ul>
     </div>
 
-    <div id="tab-einstellungen" class="tab-panel" style="display:none;">
+    <div id="tab-aufgaben" class="tab-panel" style="display:none;">
+      <p>Hier entsteht bald der Aufgaben-Bereich.</p>
+    </div>
+
+    <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
+      <button class="settings-close" onclick="closeSettings()" aria-label="Schließen">✕</button>
+
       <h2>Account</h2>
       <p id="welcome"></p>
       <button onclick="logout()">Logout</button>
@@ -411,11 +420,25 @@
       }
     }
 
+    let lastActiveTab = 'liste';
+
     function showTab(tab) {
+      lastActiveTab = tab;
       document.getElementById('tab-liste').style.display = tab === 'liste' ? 'block' : 'none';
-      document.getElementById('tab-einstellungen').style.display = tab === 'einstellungen' ? 'block' : 'none';
+      document.getElementById('tab-aufgaben').style.display = tab === 'aufgaben' ? 'block' : 'none';
+      document.getElementById('tab-einstellungen').style.display = 'none';
       document.getElementById('tab-btn-liste').classList.toggle('active', tab === 'liste');
-      document.getElementById('tab-btn-einstellungen').classList.toggle('active', tab === 'einstellungen');
+      document.getElementById('tab-btn-aufgaben').classList.toggle('active', tab === 'aufgaben');
+    }
+
+    function showSettings() {
+      document.getElementById('tab-liste').style.display = 'none';
+      document.getElementById('tab-aufgaben').style.display = 'none';
+      document.getElementById('tab-einstellungen').style.display = 'block';
+    }
+
+    function closeSettings() {
+      showTab(lastActiveTab);
     }
 
     async function showApp(session) {
