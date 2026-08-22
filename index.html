@@ -60,6 +60,9 @@
           <select id="item-store">
             <option value="">– kein Laden –</option>
           </select>
+          <select id="item-department">
+            <option value="">– keine Abteilung –</option>
+          </select>
           <button onclick="addItem()">Hinzufügen</button>
           <p id="add-status"></p>
         </div>
@@ -96,6 +99,12 @@
       <button onclick="addStore()">Laden hinzufügen</button>
       <p id="store-status"></p>
       <ul id="store-list"></ul>
+
+      <h2>Abteilungen</h2>
+      <input type="text" id="department-name" placeholder="Neue Abteilung (z.B. Kühlregal)">
+      <button onclick="addDepartment()">Abteilung hinzufügen</button>
+      <p id="department-status"></p>
+      <ul id="department-list"></ul>
     </div>
   </div>
 
@@ -185,6 +194,121 @@
       selectEl.value = bisherigeAuswahl;
 
       loadItems();
+    }
+
+    let departmentsById = {};
+    let allDepartments = [];
+    let editingDepartmentId = null;
+
+    async function loadDepartments() {
+      const { data, error } = await client
+        .from('departments')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error("Fehler beim Laden der Abteilungen:", error);
+        return;
+      }
+
+      allDepartments = data;
+      departmentsById = {};
+      data.forEach(dep => { departmentsById[dep.id] = dep.name; });
+
+      renderDepartmentList();
+
+      const selectEl = document.getElementById('item-department');
+      const bisherigeAuswahl = selectEl.value;
+      selectEl.innerHTML = '<option value="">– keine Abteilung –</option>' +
+        data.map(dep => `<option value="${dep.id}">${dep.name}</option>`).join('');
+      selectEl.value = bisherigeAuswahl;
+
+      loadItems();
+    }
+
+    function renderDepartmentList() {
+      document.getElementById('department-list').innerHTML = allDepartments.map(renderDepartmentItem).join('');
+    }
+
+    function renderDepartmentItem(dep) {
+      if (dep.id === editingDepartmentId) {
+        return `
+          <li class="editing">
+            <input type="text" id="edit-department-name-${dep.id}" value="${escapeHtml(dep.name)}">
+            <div class="edit-actions">
+              <button onclick="saveEditDepartment('${dep.id}')">Speichern</button>
+              <button onclick="cancelEditDepartment()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+      return `
+        <li>
+          <span class="item-name clickable" onclick="startEditDepartment('${dep.id}')">${dep.name}</span>
+          <button onclick="deleteDepartment('${dep.id}')">löschen</button>
+        </li>
+      `;
+    }
+
+    function startEditDepartment(id) {
+      editingDepartmentId = id;
+      renderDepartmentList();
+    }
+
+    function cancelEditDepartment() {
+      editingDepartmentId = null;
+      renderDepartmentList();
+    }
+
+    async function saveEditDepartment(id) {
+      const nameEl = document.getElementById('edit-department-name-' + id);
+      const name = nameEl.value.trim();
+      if (!name) return;
+
+      const { error } = await client.from('departments').update({ name: name }).eq('id', id);
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingDepartmentId = null;
+      loadDepartments();
+    }
+
+    async function deleteDepartment(id) {
+      const dep = departmentsById[id] || "diese Abteilung";
+      if (!confirm(`"${dep}" wirklich löschen? Zugeordnete Artikel verlieren dann ihre Abteilungs-Zuordnung.`)) {
+        return;
+      }
+      const { error } = await client.from('departments').delete().eq('id', id);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      loadDepartments();
+    }
+
+    async function addDepartment() {
+      const nameEl = document.getElementById('department-name');
+      const name = nameEl.value.trim();
+      const statusEl = document.getElementById('department-status');
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { error } = await client.from('departments').insert({
+        household_id: currentHouseholdId,
+        name: name
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
+        nameEl.value = "";
+        loadDepartments();
+      }
     }
 
     function renderStoreList() {
@@ -300,6 +424,7 @@
       document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       showTab('liste');
       loadStores();
+      loadDepartments();
       loadHousehold();
       subscribeToChanges();
     }
@@ -432,6 +557,7 @@
       const menge = document.getElementById('item-menge').value;
       const einheit = document.getElementById('item-einheit').value;
       const storeId = document.getElementById('item-store').value;
+      const departmentId = document.getElementById('item-department').value;
       const statusEl = document.getElementById('add-status');
 
       if (!name) {
@@ -447,6 +573,7 @@
         menge: menge ? parseFloat(menge) : null,
         einheit: einheit,
         store_id: storeId || null,
+        department_id: departmentId || null,
         created_by: user.id
       });
 
@@ -498,6 +625,14 @@
       return leer + optionen;
     }
 
+    function departmentOptions(selectedId) {
+      const leer = `<option value="">– keine Abteilung –</option>`;
+      const optionen = Object.entries(departmentsById).map(([id, name]) =>
+        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
+      ).join('');
+      return leer + optionen;
+    }
+
     function startEdit(id) {
       editingItemId = id;
       render();
@@ -513,6 +648,7 @@
       const menge = document.getElementById('edit-menge-' + id).value;
       const einheit = document.getElementById('edit-einheit-' + id).value;
       const storeId = document.getElementById('edit-store-' + id).value;
+      const departmentId = document.getElementById('edit-department-' + id).value;
 
       if (!name) return;
 
@@ -522,7 +658,8 @@
           name: name,
           menge: menge ? parseFloat(menge) : null,
           einheit: einheit,
-          store_id: storeId || null
+          store_id: storeId || null,
+          department_id: departmentId || null
         })
         .eq('id', id);
 
@@ -541,6 +678,7 @@
             <input type="number" id="edit-menge-${item.id}" value="${item.menge ?? ''}" step="0.1" placeholder="Menge">
             <select id="edit-einheit-${item.id}">${einheitOptions(item.einheit)}</select>
             <select id="edit-store-${item.id}">${storeOptions(item.store_id)}</select>
+            <select id="edit-department-${item.id}">${departmentOptions(item.department_id)}</select>
             <div class="edit-actions">
               <button onclick="saveEdit('${item.id}')">Speichern</button>
               <button onclick="cancelEdit()">Abbrechen</button>
@@ -552,6 +690,7 @@
       const editable = item.status === 'offen';
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
+      const departmentName = item.department_id ? departmentsById[item.department_id] : null;
 
       return `
         <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -560,6 +699,7 @@
           <span class="${nameClass}"${nameClick}>
             ${item.name}
             ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+            ${departmentName ? `<br><small class="store-address">${departmentName}</small>` : ''}
           </span>
           <button onclick="deleteItem('${item.id}')">löschen</button>
         </li>
