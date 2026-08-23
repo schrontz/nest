@@ -82,7 +82,29 @@
     </div>
 
     <div id="tab-aufgaben" class="tab-panel" style="display:none;">
-      <p>Hier entsteht bald der Aufgaben-Bereich.</p>
+      <div class="add-card">
+        <button type="button" id="toggle-chore-add-link" class="add-toggle-card" onclick="toggleChoreAddForm()">+ Aufgabe hinzufügen</button>
+        <div id="chore-add-form" style="display:none;">
+          <input type="text" id="chore-title" placeholder="Titel (z.B. Müll rausbringen)">
+          <input type="date" id="chore-due-date">
+          <select id="chore-assigned-to">
+            <option value="">– niemand zugewiesen –</option>
+          </select>
+          <button onclick="addChore()">Hinzufügen</button>
+          <p id="chore-add-status"></p>
+        </div>
+      </div>
+
+      <div class="chore-filter">
+        <button class="chore-filter-btn active" id="chore-filter-alle" onclick="setChoreView('alle')">Alle Aufgaben</button>
+        <button class="chore-filter-btn" id="chore-filter-meine" onclick="setChoreView('meine')">Meine Aufgaben</button>
+      </div>
+      <div id="chore-list-offen"></div>
+
+      <p>
+        <a href="#" id="toggle-chore-done-link" onclick="toggleChoreDone(); return false;">Erledigt anzeigen (0)</a>
+      </p>
+      <ul id="chore-list-erledigt" style="display:none;"></ul>
     </div>
 
     <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
@@ -115,6 +137,12 @@
       <button onclick="addDepartment()">Abteilung hinzufügen</button>
       <p id="department-status"></p>
       <ul id="department-list"></ul>
+
+      <h2>Abteilungsreihenfolge je Laden</h2>
+      <select id="order-store-select" onchange="renderDepartmentOrderEditor()">
+        <option value="">– Laden wählen –</option>
+      </select>
+      <ul id="department-order-list"></ul>
     </div>
   </div>
 
@@ -177,6 +205,7 @@
     }
 
     let storesById = {};
+    let storesFullById = {};
     let allStores = [];
     let editingStoreId = null;
 
@@ -193,7 +222,11 @@
 
       allStores = data;
       storesById = {};
-      data.forEach(store => { storesById[store.id] = store.name; });
+      storesFullById = {};
+      data.forEach(store => {
+        storesById[store.id] = store.name;
+        storesFullById[store.id] = store;
+      });
 
       renderStoreList();
 
@@ -202,6 +235,13 @@
       selectEl.innerHTML = '<option value="">– kein Laden –</option>' +
         data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
       selectEl.value = bisherigeAuswahl;
+
+      const orderSelectEl = document.getElementById('order-store-select');
+      const bisherigeOrderAuswahl = orderSelectEl.value;
+      orderSelectEl.innerHTML = '<option value="">– Laden wählen –</option>' +
+        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+      orderSelectEl.value = bisherigeOrderAuswahl;
+      renderDepartmentOrderEditor();
 
       loadItems();
     }
@@ -238,6 +278,67 @@
 
     function renderDepartmentList() {
       document.getElementById('department-list').innerHTML = allDepartments.map(renderDepartmentItem).join('');
+    }
+
+    function getOrderedDepartmentIds(store) {
+      const stored = (store && Array.isArray(store.department_order)) ? store.department_order : [];
+      const validStored = stored.filter(id => departmentsById[id]);
+      const remaining = allDepartments
+        .map(d => d.id)
+        .filter(id => !validStored.includes(id))
+        .sort((a, b) => departmentsById[a].localeCompare(departmentsById[b]));
+      return validStored.concat(remaining);
+    }
+
+    function renderDepartmentOrderEditor() {
+      const storeId = document.getElementById('order-store-select').value;
+      const listEl = document.getElementById('department-order-list');
+
+      if (!storeId) {
+        listEl.innerHTML = '';
+        return;
+      }
+
+      const store = storesFullById[storeId];
+      const orderedIds = getOrderedDepartmentIds(store);
+
+      if (orderedIds.length === 0) {
+        listEl.innerHTML = '<li>Noch keine Abteilungen angelegt.</li>';
+        return;
+      }
+
+      listEl.innerHTML = orderedIds.map((id, index) => `
+        <li>
+          <span class="item-name">${departmentsById[id]}</span>
+          <div class="edit-actions">
+            <button ${index === 0 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, -1)">▲</button>
+            <button ${index === orderedIds.length - 1 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, 1)">▼</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    async function moveDepartmentOrder(storeId, index, direction) {
+      const store = storesFullById[storeId];
+      const orderedIds = getOrderedDepartmentIds(store);
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= orderedIds.length) return;
+
+      [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
+
+      const { error } = await client
+        .from('stores')
+        .update({ department_order: orderedIds })
+        .eq('id', storeId);
+
+      if (error) {
+        console.error("Fehler beim Speichern der Reihenfolge:", error);
+        return;
+      }
+
+      storesFullById[storeId] = { ...store, department_order: orderedIds };
+      renderDepartmentOrderEditor();
+      render();
     }
 
     function renderDepartmentItem(dep) {
@@ -450,7 +551,10 @@
       loadStores();
       loadDepartments();
       loadHousehold();
+      loadHouseholdMembers();
+      loadChores();
       subscribeToChanges();
+      subscribeToChoreChanges();
     }
 
     function showOnboarding() {
@@ -465,6 +569,16 @@
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'shopping_items', filter: `household_id=eq.${currentHouseholdId}` },
           () => { loadItems(); }
+        )
+        .subscribe();
+    }
+
+    function subscribeToChoreChanges() {
+      client
+        .channel('chores_changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'chores', filter: `household_id=eq.${currentHouseholdId}` },
+          () => { loadChores(); }
         )
         .subscribe();
     }
@@ -714,7 +828,6 @@
       const editable = item.status === 'offen';
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
-      const departmentName = item.department_id ? departmentsById[item.department_id] : null;
 
       return `
         <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -723,32 +836,269 @@
           <span class="${nameClass}"${nameClick}>
             ${item.name}
             ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
-            ${departmentName ? `<br><small class="store-address">${departmentName}</small>` : ''}
           </span>
           <button onclick="deleteItem('${item.id}')">löschen</button>
         </li>
       `;
     }
 
+    function renderGroupedByDepartment(items, storeId) {
+      const ohneAbteilung = "Ohne Abteilung";
+      const gruppen = {};
+      items.forEach(item => {
+        const depName = item.department_id ? (departmentsById[item.department_id] || "Unbekannte Abteilung") : ohneAbteilung;
+        if (!gruppen[depName]) gruppen[depName] = [];
+        gruppen[depName].push(item);
+      });
+
+      const store = storeId ? storesFullById[storeId] : null;
+      const orderedIds = getOrderedDepartmentIds(store);
+      const orderedNamen = orderedIds.map(id => departmentsById[id]).filter(name => gruppen[name]);
+
+      const bekannteNamen = new Set(orderedNamen);
+      const uebrigeNamen = Object.keys(gruppen)
+        .filter(name => name !== ohneAbteilung && !bekannteNamen.has(name))
+        .sort((a, b) => a.localeCompare(b));
+
+      const depNamen = [...orderedNamen, ...uebrigeNamen];
+      if (gruppen[ohneAbteilung]) depNamen.push(ohneAbteilung);
+
+      return depNamen.map(depName => `
+        <h4>${depName}</h4>
+        <ul>${gruppen[depName].map(renderItem).join('')}</ul>
+      `).join('');
+    }
+
     function renderGroupedByStore(items) {
       const ohneLaden = "Ohne Laden";
       const gruppen = {};
       items.forEach(item => {
-        const ladenName = item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden;
-        if (!gruppen[ladenName]) gruppen[ladenName] = [];
-        gruppen[ladenName].push(item);
+        const key = item.store_id || 'none';
+        if (!gruppen[key]) {
+          gruppen[key] = {
+            name: item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden,
+            items: []
+          };
+        }
+        gruppen[key].items.push(item);
       });
 
-      const ladenNamen = Object.keys(gruppen).sort((a, b) => {
-        if (a === ohneLaden) return 1;
-        if (b === ohneLaden) return -1;
-        return a.localeCompare(b);
+      const keys = Object.keys(gruppen).sort((a, b) => {
+        if (a === 'none') return 1;
+        if (b === 'none') return -1;
+        return gruppen[a].name.localeCompare(gruppen[b].name);
       });
 
-      return ladenNamen.map(ladenName => `
-        <h3>${ladenName}</h3>
-        <ul>${gruppen[ladenName].map(renderItem).join('')}</ul>
+      return keys.map(key => `
+        <h3>${gruppen[key].name}</h3>
+        ${renderGroupedByDepartment(gruppen[key].items, key === 'none' ? null : key)}
       `).join('');
+    }
+
+    function toggleChoreAddForm() {
+      const formEl = document.getElementById('chore-add-form');
+      const istOffen = formEl.style.display !== 'none';
+      formEl.style.display = istOffen ? 'none' : 'block';
+      document.getElementById('toggle-chore-add-link').textContent = istOffen ? "+ Aufgabe hinzufügen" : "– Formular schließen";
+    }
+
+    let showChoreDone = false;
+
+    function toggleChoreDone() {
+      showChoreDone = !showChoreDone;
+      document.getElementById('chore-list-erledigt').style.display = showChoreDone ? 'block' : 'none';
+      updateChoreDoneLabel();
+    }
+
+    function updateChoreDoneLabel() {
+      const count = document.getElementById('chore-list-erledigt').children.length;
+      const link = document.getElementById('toggle-chore-done-link');
+      link.textContent = (showChoreDone ? "Erledigt ausblenden (" : "Erledigt anzeigen (") + count + ")";
+    }
+
+    let householdMembers = [];
+    let membersById = {};
+
+    async function loadHouseholdMembers() {
+      const { data, error } = await client.rpc('get_household_members', { target_household_id: currentHouseholdId });
+      if (error) {
+        console.error("Fehler beim Laden der Haushaltsmitglieder:", error);
+        return;
+      }
+
+      householdMembers = data;
+      membersById = {};
+      data.forEach(m => { membersById[m.user_id] = m.email; });
+
+      const selectEl = document.getElementById('chore-assigned-to');
+      const bisherigeAuswahl = selectEl.value;
+      selectEl.innerHTML = memberOptions(null);
+      selectEl.value = bisherigeAuswahl;
+    }
+
+    function memberOptions(selectedId) {
+      const leer = `<option value="">– niemand zugewiesen –</option>`;
+      const optionen = householdMembers.map(m =>
+        `<option value="${m.user_id}" ${m.user_id === selectedId ? 'selected' : ''}>${m.email}</option>`
+      ).join('');
+      return leer + optionen;
+    }
+
+    function formatDueDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    let allChores = [];
+    let editingChoreId = null;
+    let choreViewFilter = 'alle';
+
+    function setChoreView(view) {
+      choreViewFilter = view;
+      document.getElementById('chore-filter-alle').classList.toggle('active', view === 'alle');
+      document.getElementById('chore-filter-meine').classList.toggle('active', view === 'meine');
+      renderChores();
+    }
+
+    async function loadChores() {
+      const { data, error } = await client
+        .from('chores')
+        .select('*')
+        .order('due_date', { ascending: true, nullsFirst: false });
+
+      if (error) {
+        console.error("Fehler beim Laden der Aufgaben:", error);
+        return;
+      }
+
+      allChores = data;
+      renderChores();
+    }
+
+    function renderChores() {
+      const eigeneId = currentSession ? currentSession.user.id : null;
+      const sichtbar = choreViewFilter === 'meine'
+        ? allChores.filter(c => c.assigned_to === eigeneId)
+        : allChores;
+
+      const offen = sichtbar.filter(c => c.status === 'offen');
+      const erledigt = sichtbar.filter(c => c.status === 'erledigt');
+
+      document.getElementById('chore-list-offen').innerHTML = offen.length
+        ? offen.map(renderChore).join('')
+        : '<p class="store-address">Keine offenen Aufgaben.</p>';
+      document.getElementById('chore-list-erledigt').innerHTML = erledigt.map(renderChore).join('');
+
+      updateChoreDoneLabel();
+    }
+
+    function renderChore(chore) {
+      if (chore.id === editingChoreId) {
+        return `
+          <li class="editing">
+            <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
+            <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
+            <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
+            <div class="edit-actions">
+              <button onclick="saveEditChore('${chore.id}')">Speichern</button>
+              <button onclick="cancelEditChore()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+
+      const editable = chore.status === 'offen';
+      const nameClass = editable ? 'item-name clickable' : 'item-name';
+      const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
+      const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
+
+      return `
+        <li style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
+                 onchange="toggleChoreStatus('${chore.id}', this.checked)">
+          <span class="${nameClass}"${nameClick}>
+            ${chore.title}
+            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}` : ''}
+            ${assignedName ? `<br><small class="store-address">${assignedName}</small>` : ''}
+          </span>
+          <button onclick="deleteChore('${chore.id}')">löschen</button>
+        </li>
+      `;
+    }
+
+    function startEditChore(id) {
+      editingChoreId = id;
+      renderChores();
+    }
+
+    function cancelEditChore() {
+      editingChoreId = null;
+      renderChores();
+    }
+
+    async function saveEditChore(id) {
+      const title = document.getElementById('edit-chore-title-' + id).value.trim();
+      const dueDate = document.getElementById('edit-chore-due-' + id).value;
+      const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
+
+      if (!title) return;
+
+      const { error } = await client
+        .from('chores')
+        .update({
+          title: title,
+          due_date: dueDate || null,
+          assigned_to: assignedTo || null
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingChoreId = null;
+    }
+
+    async function toggleChoreStatus(id, isChecked) {
+      const neuerStatus = isChecked ? 'erledigt' : 'offen';
+      const { error } = await client.from('chores').update({ status: neuerStatus }).eq('id', id);
+      if (error) console.error("Fehler beim Ändern:", error);
+    }
+
+    async function deleteChore(id) {
+      const { error } = await client.from('chores').delete().eq('id', id);
+      if (error) console.error("Fehler beim Löschen:", error);
+    }
+
+    async function addChore() {
+      const titleEl = document.getElementById('chore-title');
+      const dueEl = document.getElementById('chore-due-date');
+      const assignedEl = document.getElementById('chore-assigned-to');
+      const statusEl = document.getElementById('chore-add-status');
+      const title = titleEl.value.trim();
+
+      if (!title) {
+        statusEl.textContent = "Bitte einen Titel eingeben.";
+        return;
+      }
+
+      const { data: { user } } = await client.auth.getUser();
+
+      const { error } = await client.from('chores').insert({
+        household_id: currentHouseholdId,
+        title: title,
+        due_date: dueEl.value || null,
+        assigned_to: assignedEl.value || null,
+        created_by: user.id
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + title + "\" hinzugefügt!";
+        titleEl.value = "";
+        dueEl.value = "";
+      }
     }
 
     async function loadItems() {
