@@ -133,6 +133,13 @@ h3:first-child {
   margin-top: 0;
 }
 
+h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin: 0.6rem 0 0.3rem 0.4rem;
+}
+
 .app-header {
   display: flex;
   align-items: flex-end;
@@ -249,6 +256,35 @@ li.editing input, li.editing select {
 .edit-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.edit-actions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.chore-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.chore-filter-btn {
+  background: var(--color-surface);
+  color: var(--color-muted);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chore-filter-btn:hover {
+  background: #f0f5f2;
+}
+
+.chore-filter-btn.active {
+  background: var(--color-secondary);
+  color: white;
 }
 
 .item-name.clickable {
