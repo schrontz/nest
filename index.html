@@ -1,234 +1,465 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skillet – Koch-Skills</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#b5522f">
-<link rel="icon" href="icon-192.png">
-<style>
-  :root {
-    --bg: #faf7f2;
-    --card: #ffffff;
-    --ink: #2b2420;
-    --muted: #786f64;
-    --accent: #b5522f;
-    --accent-light: #f1d9cd;
-    --ok: #4a7c59;
-    --warn: #c9973a;
-    --border: #e6ded3;
-  }
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    margin: 0;
-    padding: 24px 16px 80px;
-    overflow-x: hidden;
-  }
-  .wrap { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 4px; }
-  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
-  nav {
-    display: flex; gap: 2px; margin-bottom: 0;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-  }
-  nav button {
-    background: var(--card); border: none; padding: 10px 16px;
-    border-radius: 10px 10px 0 0;
-    font-size: 0.92rem; font-weight: 600; cursor: pointer; color: var(--muted);
-    white-space: nowrap; flex-shrink: 0;
-    box-shadow: 0 -1px 2px rgba(0,0,0,0.03);
-  }
-  nav button.active { background: var(--accent-light); color: var(--accent); }
-
-  .tab-panel {
-    background: var(--accent-light);
-    border-radius: 0 12px 12px 12px;
-    padding: 18px 14px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    margin-bottom: 24px;
-  }
-
-  /* Kochmodus ist als Küchen-Begleiter fürs Handy gedacht - auf breiten Bildschirmen ausblenden */
-  @media (min-width: 700px) {
-    #tab-kochen, #view-kochen, #kochmodus-overlay { display: none !important; }
-  }
-  @keyframes alarmBlink {
-    0%, 100% { background-color: #1a1512; }
-    50% { background-color: var(--accent); }
-  }
-  .kochmodus-alarm { animation: alarmBlink 1s infinite; }
-  .card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px; margin-bottom: 16px;
-  }
-  select, textarea, button.primary {
-    width: 100%; padding: 10px 12px; border-radius: 8px;
-    border: 1px solid var(--border); font-size: 1rem; font-family: inherit;
-  }
-  textarea { min-height: 100px; resize: vertical; margin-top: 10px; }
-  button.primary {
-    background: var(--accent); color: white; border: none;
-    margin-top: 14px; cursor: pointer; font-weight: 600;
-  }
-  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
-  .kriterium { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.92rem; border-bottom: 1px solid var(--border); }
-  .kriterium:last-child { border-bottom: none; }
-  .badge { padding: 2px 8px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
-  .badge.erfuellt { background: #dcece0; color: var(--ok); }
-  .badge.unklar { background: #f5ecd8; color: var(--warn); }
-  .badge.nicht_erfuellt { background: #f4dcd6; color: var(--accent); }
-  .fehler-liste { background: #fdf4ef; border-radius: 8px; padding: 10px 14px; margin-top: 10px; font-size: 0.9rem; }
-  .rueckfrage-box { background: var(--accent-light); border-radius: 8px; padding: 14px; margin-top: 14px; }
-  .progress-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .progress-item:last-child { border-bottom: none; }
-  .level-dots { display: flex; gap: 4px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
-  .dot.filled { background: var(--accent); }
-  .muted { color: var(--muted); font-size: 0.85rem; }
-  .status-line { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>🍳 Skillet</h1>
-  <div class="subtitle">Koch-Skills reflektieren und wachsen sehen</div>
-
-  <nav>
-    <button id="tab-reflect" class="active" onclick="showTab('reflect')">Reflektieren</button>
-    <button id="tab-recipes" onclick="showTab('recipes')">Rezepte</button>
-    <button id="tab-progress" onclick="showTab('progress')">Fortschritt</button>
-    <button id="tab-history" onclick="showTab('history')">Verlauf</button>
-    <button id="tab-kochen" onclick="showTab('kochen')">Kochen</button>
-  </nav>
-
-  <!-- REFLECT VIEW -->
-  <div id="view-reflect" class="tab-panel">
-    <div class="card">
-      <label for="reflect-recipe-select">Rezept (optional)</label>
-      <select id="reflect-recipe-select" onchange="onReflectRecipeChange()">
-        <option value="">Kein Rezept / freie Auswahl</option>
-      </select>
-
-      <div id="technique-select-wrapper" style="margin-top:14px;">
-        <label for="technique-select">Technik</label>
-        <select id="technique-select" onchange="onTechniqueSelectChange()">
-          <option value="">Automatisch erkennen lassen</option>
-        </select>
-      </div>
-      <div id="technique-fixed-label" style="display:none; margin-top:14px;">
-        <label>Technik</label>
-        <div style="padding:10px 12px; background: var(--accent-light); border-radius:8px; font-weight:600;"></div>
-      </div>
-
-      <div id="auto-titel-wrapper" style="margin-top:14px;">
-        <label for="auto-titel-input">Titel (optional, nur falls kein Rezept gewählt)</label>
-        <input type="text" id="auto-titel-input" placeholder="z. B. Spontan gekocht"
-          style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
-      </div>
-
-      <label style="margin-top:14px;">Was hast du gemacht?</label>
-      <textarea id="beschreibung" placeholder="Beschreibe, was du gemacht und beobachtet hast..."></textarea>
-
-      <button class="primary" id="submit-btn" onclick="submitReflection()">Absenden</button>
-      <div class="status-line" id="status-line"></div>
-    </div>
-
-    <div id="auto-detect-info" class="muted" style="padding:0 4px;"></div>
-    <div id="reflect-vorschlag-card"></div>
-
-    <div id="result-card"></div>
-  </div>
-
-  <!-- RECIPES VIEW -->
-  <div id="view-recipes" class="tab-panel" style="display:none;">
-    <div class="card">
-      <label for="import-url-input">Von URL importieren</label>
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="import-url-input" placeholder="https://..."
-          style="flex:1; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
-        <button class="primary" style="width:auto; padding:10px 18px; margin-top:0;" onclick="importRecipeFromUrl()">Importieren</button>
-      </div>
-      <div class="status-line" id="import-status-line"></div>
-    </div>
-
-    <div class="card">
-      <div id="edit-mode-banner" style="display:none; background: var(--accent-light); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.9rem;">
-        Du bearbeitest eine Kopie von "<span id="edit-mode-original-title"></span>". Wird als neues, eigenständiges Rezept gespeichert.
-        <span id="edit-mode-mengen-hinweis" class="muted" style="display:block; font-size:0.8rem; margin-top:4px;"></span>
-        <a href="#" onclick="cancelEditCopy(); return false;" style="color: var(--accent); margin-left:8px;">Abbrechen</a>
-      </div>
-      <label for="recipe-titel-input">Titel</label>
-      <input type="text" id="recipe-titel-input" placeholder="z. B. Rührei mit Speck"
-        style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
-
-      <label style="margin-top:14px;">Zutaten</label>
-      <div id="zutaten-rows"></div>
-      <button type="button" onclick="addZutatRow()" style="width:auto; padding:6px 14px; font-size:0.85rem; background:none; border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-top:4px;">+ Zutat hinzufügen</button>
-
-      <label style="margin-top:14px;">Portionen (optional, für Mengenumrechnung)</label>
-      <input type="number" id="recipe-portionen-input" min="1" placeholder="z. B. 4"
-        style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
-
-      <label style="margin-top:14px;">Anleitung</label>
-      <div id="schritte-rows"></div>
-      <button type="button" onclick="addSchrittRow()" style="width:auto; padding:6px 14px; font-size:0.85rem; background:none; border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-top:4px;">+ Schritt hinzufügen</button>
-
-      <button class="primary" id="recipe-submit-btn" onclick="submitRecipe()" style="margin-top:18px;">Rezept speichern</button>
-      <div class="status-line" id="recipe-status-line"></div>
-    </div>
-
-    <div id="detect-card"></div>
-
-    <div class="card">
-      <div class="muted" style="margin-bottom:10px;">Deine Rezepte</div>
-      <div id="recipe-list"><div class="muted">Lade Rezepte...</div></div>
-    </div>
-  </div>
-
-  <!-- PROGRESS VIEW -->
-  <div id="view-progress" class="tab-panel" style="display:none;">
-    <div class="card" id="progress-list">
-      <div class="muted">Lade Fortschritt...</div>
-    </div>
-  </div>
-
-  <!-- HISTORY VIEW -->
-  <div id="view-history" class="tab-panel" style="display:none;">
-    <div class="card" id="history-list">
-      <div class="muted">Lade Verlauf...</div>
-    </div>
-  </div>
-
-  <!-- KOCHMODUS START VIEW -->
-  <div id="view-kochen" class="tab-panel" style="display:none;">
-    <div class="card" id="kochmodus-start">
-      <div style="margin-bottom:10px; font-weight:600;">Nach Rezept kochen?</div>
-      <div style="display:flex; gap:8px; margin-bottom:14px;">
-        <button onclick="kochmodusMitRezept(true)" style="width:auto; flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:none; cursor:pointer;">Ja</button>
-        <button onclick="kochmodusMitRezept(false)" style="width:auto; flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:none; cursor:pointer;">Nein, frei kochen</button>
-      </div>
-      <div id="kochmodus-rezept-auswahl" style="display:none;">
-        <label for="kochmodus-recipe-select">Rezept</label>
-        <select id="kochmodus-recipe-select"></select>
-      </div>
-      <button class="primary" style="margin-top:14px;" onclick="startKochmodus()">Kochmodus starten</button>
-    </div>
-  </div>
 </div>
 
-<!-- KOCHMODUS VOLLBILD-OVERLAY -->
-<div id="kochmodus-overlay" style="display:none; position:fixed; inset:0; background:#1a1512; color:#f0ebe3; z-index:1000; flex-direction:column;"></div>
+<div id="tab-aufgaben" class="tab-panel" style="display:none;">
+      <p>Hier entsteht bald der Aufgaben-Bereich.</p>
+      <div class="add-card">
+        <button type="button" id="toggle-chore-add-link" class="add-toggle-card" onclick="toggleChoreAddForm()">+ Aufgabe hinzufügen</button>
+        <div id="chore-add-form" style="display:none;">
+          <input type="text" id="chore-title" placeholder="Titel (z.B. Müll rausbringen)">
+          <input type="date" id="chore-due-date">
+          <select id="chore-assigned-to">
+            <option value="">– niemand zugewiesen –</option>
+          </select>
+          <button onclick="addChore()">Hinzufügen</button>
+          <p id="chore-add-status"></p>
+        </div>
+      </div>
 
-<script src="shared.js"></script>
-<script src="recipes.js"></script>
-<script src="reflect.js"></script>
-<script src="progress-history.js"></script>
-<script src="kochmodus.js"></script>
-<script src="init.js"></script>
-</body>
-</html>
+      <div class="chore-filter">
+        <button class="chore-filter-btn active" id="chore-filter-alle" onclick="setChoreView('alle')">Alle Aufgaben</button>
+        <button class="chore-filter-btn" id="chore-filter-meine" onclick="setChoreView('meine')">Meine Aufgaben</button>
+      </div>
+      <div id="chore-list-offen"></div>
+
+      <p>
+        <a href="#" id="toggle-chore-done-link" onclick="toggleChoreDone(); return false;">Erledigt anzeigen (0)</a>
+      </p>
+      <ul id="chore-list-erledigt" style="display:none;"></ul>
+</div>
+
+<div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
+@@ -115,6 +137,12 @@ <h2>Abteilungen</h2>
+<button onclick="addDepartment()">Abteilung hinzufügen</button>
+<p id="department-status"></p>
+<ul id="department-list"></ul>
+
+      <h2>Abteilungsreihenfolge je Laden</h2>
+      <select id="order-store-select" onchange="renderDepartmentOrderEditor()">
+        <option value="">– Laden wählen –</option>
+      </select>
+      <ul id="department-order-list"></ul>
+</div>
+</div>
+
+@@ -177,6 +205,7 @@ <h2>Abteilungen</h2>
+}
+
+let storesById = {};
+    let storesFullById = {};
+let allStores = [];
+let editingStoreId = null;
+
+@@ -193,7 +222,11 @@ <h2>Abteilungen</h2>
+
+allStores = data;
+storesById = {};
+      data.forEach(store => { storesById[store.id] = store.name; });
+      storesFullById = {};
+      data.forEach(store => {
+        storesById[store.id] = store.name;
+        storesFullById[store.id] = store;
+      });
+
+renderStoreList();
+
+@@ -203,6 +236,13 @@ <h2>Abteilungen</h2>
+data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+selectEl.value = bisherigeAuswahl;
+
+      const orderSelectEl = document.getElementById('order-store-select');
+      const bisherigeOrderAuswahl = orderSelectEl.value;
+      orderSelectEl.innerHTML = '<option value="">– Laden wählen –</option>' +
+        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+      orderSelectEl.value = bisherigeOrderAuswahl;
+      renderDepartmentOrderEditor();
+
+loadItems();
+}
+
+@@ -240,6 +280,67 @@ <h2>Abteilungen</h2>
+document.getElementById('department-list').innerHTML = allDepartments.map(renderDepartmentItem).join('');
+}
+
+    function getOrderedDepartmentIds(store) {
+      const stored = (store && Array.isArray(store.department_order)) ? store.department_order : [];
+      const validStored = stored.filter(id => departmentsById[id]);
+      const remaining = allDepartments
+        .map(d => d.id)
+        .filter(id => !validStored.includes(id))
+        .sort((a, b) => departmentsById[a].localeCompare(departmentsById[b]));
+      return validStored.concat(remaining);
+    }
+
+    function renderDepartmentOrderEditor() {
+      const storeId = document.getElementById('order-store-select').value;
+      const listEl = document.getElementById('department-order-list');
+
+      if (!storeId) {
+        listEl.innerHTML = '';
+        return;
+      }
+
+      const store = storesFullById[storeId];
+      const orderedIds = getOrderedDepartmentIds(store);
+
+      if (orderedIds.length === 0) {
+        listEl.innerHTML = '<li>Noch keine Abteilungen angelegt.</li>';
+        return;
+      }
+
+      listEl.innerHTML = orderedIds.map((id, index) => `
+        <li>
+          <span class="item-name">${departmentsById[id]}</span>
+          <div class="edit-actions">
+            <button ${index === 0 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, -1)">▲</button>
+            <button ${index === orderedIds.length - 1 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, 1)">▼</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    async function moveDepartmentOrder(storeId, index, direction) {
+      const store = storesFullById[storeId];
+      const orderedIds = getOrderedDepartmentIds(store);
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= orderedIds.length) return;
+
+      [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
+
+      const { error } = await client
+        .from('stores')
+        .update({ department_order: orderedIds })
+        .eq('id', storeId);
+
+      if (error) {
+        console.error("Fehler beim Speichern der Reihenfolge:", error);
+        return;
+      }
+
+      storesFullById[storeId] = { ...store, department_order: orderedIds };
+      renderDepartmentOrderEditor();
+      render();
+    }
+
+function renderDepartmentItem(dep) {
+if (dep.id === editingDepartmentId) {
+return `
+@@ -450,7 +551,10 @@ <h2>Abteilungen</h2>
+loadStores();
+loadDepartments();
+loadHousehold();
+      loadHouseholdMembers();
+      loadChores();
+subscribeToChanges();
+      subscribeToChoreChanges();
+}
+
+function showOnboarding() {
+@@ -469,6 +573,16 @@ <h2>Abteilungen</h2>
+.subscribe();
+}
+
+    function subscribeToChoreChanges() {
+      client
+        .channel('chores_changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'chores', filter: `household_id=eq.${currentHouseholdId}` },
+          () => { loadChores(); }
+        )
+        .subscribe();
+    }
+
+function showLogin() {
+document.getElementById('login-view').style.display = 'block';
+document.getElementById('onboarding-view').style.display = 'none';
+@@ -714,7 +828,6 @@ <h2>Abteilungen</h2>
+const editable = item.status === 'offen';
+const nameClass = editable ? 'item-name clickable' : 'item-name';
+const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
+      const departmentName = item.department_id ? departmentsById[item.department_id] : null;
+
+return `
+       <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
+@@ -723,34 +836,271 @@ <h2>Abteilungen</h2>
+         <span class="${nameClass}"${nameClick}>
+           ${item.name}
+           ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+            ${departmentName ? `<br><small class="store-address">${departmentName}</small>` : ''}
+         </span>
+         <button onclick="deleteItem('${item.id}')">löschen</button>
+       </li>
+     `;
+}
+
+    function renderGroupedByDepartment(items, storeId) {
+      const ohneAbteilung = "Ohne Abteilung";
+      const gruppen = {};
+      items.forEach(item => {
+        const depName = item.department_id ? (departmentsById[item.department_id] || "Unbekannte Abteilung") : ohneAbteilung;
+        if (!gruppen[depName]) gruppen[depName] = [];
+        gruppen[depName].push(item);
+      });
+
+      const store = storeId ? storesFullById[storeId] : null;
+      const orderedIds = getOrderedDepartmentIds(store);
+      const orderedNamen = orderedIds.map(id => departmentsById[id]).filter(name => gruppen[name]);
+
+      const bekannteNamen = new Set(orderedNamen);
+      const uebrigeNamen = Object.keys(gruppen)
+        .filter(name => name !== ohneAbteilung && !bekannteNamen.has(name))
+        .sort((a, b) => a.localeCompare(b));
+
+      const depNamen = [...orderedNamen, ...uebrigeNamen];
+      if (gruppen[ohneAbteilung]) depNamen.push(ohneAbteilung);
+
+      return depNamen.map(depName => `
+        <h4>${depName}</h4>
+        <ul>${gruppen[depName].map(renderItem).join('')}</ul>
+      `).join('');
+    }
+
+function renderGroupedByStore(items) {
+const ohneLaden = "Ohne Laden";
+const gruppen = {};
+items.forEach(item => {
+        const ladenName = item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden;
+        if (!gruppen[ladenName]) gruppen[ladenName] = [];
+        gruppen[ladenName].push(item);
+        const key = item.store_id || 'none';
+        if (!gruppen[key]) {
+          gruppen[key] = {
+            name: item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden,
+            items: []
+          };
+        }
+        gruppen[key].items.push(item);
+});
+
+      const ladenNamen = Object.keys(gruppen).sort((a, b) => {
+        if (a === ohneLaden) return 1;
+        if (b === ohneLaden) return -1;
+        return a.localeCompare(b);
+      const keys = Object.keys(gruppen).sort((a, b) => {
+        if (a === 'none') return 1;
+        if (b === 'none') return -1;
+        return gruppen[a].name.localeCompare(gruppen[b].name);
+});
+
+      return ladenNamen.map(ladenName => `
+        <h3>${ladenName}</h3>
+        <ul>${gruppen[ladenName].map(renderItem).join('')}</ul>
+      return keys.map(key => `
+        <h3>${gruppen[key].name}</h3>
+        ${renderGroupedByDepartment(gruppen[key].items, key === 'none' ? null : key)}
+     `).join('');
+}
+
+    function toggleChoreAddForm() {
+      const formEl = document.getElementById('chore-add-form');
+      const istOffen = formEl.style.display !== 'none';
+      formEl.style.display = istOffen ? 'none' : 'block';
+      document.getElementById('toggle-chore-add-link').textContent = istOffen ? "+ Aufgabe hinzufügen" : "– Formular schließen";
+    }
+
+    let showChoreDone = false;
+
+    function toggleChoreDone() {
+      showChoreDone = !showChoreDone;
+      document.getElementById('chore-list-erledigt').style.display = showChoreDone ? 'block' : 'none';
+      updateChoreDoneLabel();
+    }
+
+    function updateChoreDoneLabel() {
+      const count = document.getElementById('chore-list-erledigt').children.length;
+      const link = document.getElementById('toggle-chore-done-link');
+      link.textContent = (showChoreDone ? "Erledigt ausblenden (" : "Erledigt anzeigen (") + count + ")";
+    }
+
+    let householdMembers = [];
+    let membersById = {};
+
+    async function loadHouseholdMembers() {
+      const { data, error } = await client.rpc('get_household_members', { target_household_id: currentHouseholdId });
+      if (error) {
+        console.error("Fehler beim Laden der Haushaltsmitglieder:", error);
+        return;
+      }
+
+      householdMembers = data;
+      membersById = {};
+      data.forEach(m => { membersById[m.user_id] = m.email; });
+
+      const selectEl = document.getElementById('chore-assigned-to');
+      const bisherigeAuswahl = selectEl.value;
+      selectEl.innerHTML = memberOptions(null);
+      selectEl.value = bisherigeAuswahl;
+    }
+
+    function memberOptions(selectedId) {
+      const leer = `<option value="">– niemand zugewiesen –</option>`;
+      const optionen = householdMembers.map(m =>
+        `<option value="${m.user_id}" ${m.user_id === selectedId ? 'selected' : ''}>${m.email}</option>`
+      ).join('');
+      return leer + optionen;
+    }
+
+    function formatDueDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    let allChores = [];
+    let editingChoreId = null;
+    let choreViewFilter = 'alle';
+
+    function setChoreView(view) {
+      choreViewFilter = view;
+      document.getElementById('chore-filter-alle').classList.toggle('active', view === 'alle');
+      document.getElementById('chore-filter-meine').classList.toggle('active', view === 'meine');
+      renderChores();
+    }
+
+    async function loadChores() {
+      const { data, error } = await client
+        .from('chores')
+        .select('*')
+        .order('due_date', { ascending: true, nullsFirst: false });
+
+      if (error) {
+        console.error("Fehler beim Laden der Aufgaben:", error);
+        return;
+      }
+
+      allChores = data;
+      renderChores();
+    }
+
+    function renderChores() {
+      const eigeneId = currentSession ? currentSession.user.id : null;
+      const sichtbar = choreViewFilter === 'meine'
+        ? allChores.filter(c => c.assigned_to === eigeneId)
+        : allChores;
+
+      const offen = sichtbar.filter(c => c.status === 'offen');
+      const erledigt = sichtbar.filter(c => c.status === 'erledigt');
+
+      document.getElementById('chore-list-offen').innerHTML = offen.length
+        ? offen.map(renderChore).join('')
+        : '<p class="store-address">Keine offenen Aufgaben.</p>';
+      document.getElementById('chore-list-erledigt').innerHTML = erledigt.map(renderChore).join('');
+
+      updateChoreDoneLabel();
+    }
+
+    function renderChore(chore) {
+      if (chore.id === editingChoreId) {
+        return `
+          <li class="editing">
+            <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
+            <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
+            <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
+            <div class="edit-actions">
+              <button onclick="saveEditChore('${chore.id}')">Speichern</button>
+              <button onclick="cancelEditChore()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+
+      const editable = chore.status === 'offen';
+      const nameClass = editable ? 'item-name clickable' : 'item-name';
+      const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
+      const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
+
+      return `
+        <li style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
+                 onchange="toggleChoreStatus('${chore.id}', this.checked)">
+          <span class="${nameClass}"${nameClick}>
+            ${chore.title}
+            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}` : ''}
+            ${assignedName ? `<br><small class="store-address">${assignedName}</small>` : ''}
+          </span>
+          <button onclick="deleteChore('${chore.id}')">löschen</button>
+        </li>
+      `;
+    }
+
+    function startEditChore(id) {
+      editingChoreId = id;
+      renderChores();
+    }
+
+    function cancelEditChore() {
+      editingChoreId = null;
+      renderChores();
+    }
+
+    async function saveEditChore(id) {
+      const title = document.getElementById('edit-chore-title-' + id).value.trim();
+      const dueDate = document.getElementById('edit-chore-due-' + id).value;
+      const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
+
+      if (!title) return;
+
+      const { error } = await client
+        .from('chores')
+        .update({
+          title: title,
+          due_date: dueDate || null,
+          assigned_to: assignedTo || null
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingChoreId = null;
+    }
+
+    async function toggleChoreStatus(id, isChecked) {
+      const neuerStatus = isChecked ? 'erledigt' : 'offen';
+      const { error } = await client.from('chores').update({ status: neuerStatus }).eq('id', id);
+      if (error) console.error("Fehler beim Ändern:", error);
+    }
+
+    async function deleteChore(id) {
+      const { error } = await client.from('chores').delete().eq('id', id);
+      if (error) console.error("Fehler beim Löschen:", error);
+    }
+
+    async function addChore() {
+      const titleEl = document.getElementById('chore-title');
+      const dueEl = document.getElementById('chore-due-date');
+      const assignedEl = document.getElementById('chore-assigned-to');
+      const statusEl = document.getElementById('chore-add-status');
+      const title = titleEl.value.trim();
+
+      if (!title) {
+        statusEl.textContent = "Bitte einen Titel eingeben.";
+        return;
+      }
+
+      const { data: { user } } = await client.auth.getUser();
+
+      const { error } = await client.from('chores').insert({
+        household_id: currentHouseholdId,
+        title: title,
+        due_date: dueEl.value || null,
+        assigned_to: assignedEl.value || null,
+        created_by: user.id
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + title + "\" hinzugefügt!";
+        titleEl.value = "";
+        dueEl.value = "";
+      }
+    }
+
+async function loadItems() {
+const { data, error } = await client
+.from('shopping_items')
