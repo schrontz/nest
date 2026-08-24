@@ -1,1149 +1,234 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Nest</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="favicon.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Nest">
-  <meta name="theme-color" content="#abdeba">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skillet – Koch-Skills</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b5522f">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #faf7f2;
+    --card: #ffffff;
+    --ink: #2b2420;
+    --muted: #786f64;
+    --accent: #b5522f;
+    --accent-light: #f1d9cd;
+    --ok: #4a7c59;
+    --warn: #c9973a;
+    --border: #e6ded3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding: 24px 16px 80px;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
+  nav {
+    display: flex; gap: 2px; margin-bottom: 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  nav button {
+    background: var(--card); border: none; padding: 10px 16px;
+    border-radius: 10px 10px 0 0;
+    font-size: 0.92rem; font-weight: 600; cursor: pointer; color: var(--muted);
+    white-space: nowrap; flex-shrink: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.03);
+  }
+  nav button.active { background: var(--accent-light); color: var(--accent); }
+
+  .tab-panel {
+    background: var(--accent-light);
+    border-radius: 0 12px 12px 12px;
+    padding: 18px 14px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    margin-bottom: 24px;
+  }
+
+  /* Kochmodus ist als Küchen-Begleiter fürs Handy gedacht - auf breiten Bildschirmen ausblenden */
+  @media (min-width: 700px) {
+    #tab-kochen, #view-kochen, #kochmodus-overlay { display: none !important; }
+  }
+  @keyframes alarmBlink {
+    0%, 100% { background-color: #1a1512; }
+    50% { background-color: var(--accent); }
+  }
+  .kochmodus-alarm { animation: alarmBlink 1s infinite; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  }
+  select, textarea, button.primary {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 1rem; font-family: inherit;
+  }
+  textarea { min-height: 100px; resize: vertical; margin-top: 10px; }
+  button.primary {
+    background: var(--accent); color: white; border: none;
+    margin-top: 14px; cursor: pointer; font-weight: 600;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  .kriterium { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.92rem; border-bottom: 1px solid var(--border); }
+  .kriterium:last-child { border-bottom: none; }
+  .badge { padding: 2px 8px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+  .badge.erfuellt { background: #dcece0; color: var(--ok); }
+  .badge.unklar { background: #f5ecd8; color: var(--warn); }
+  .badge.nicht_erfuellt { background: #f4dcd6; color: var(--accent); }
+  .fehler-liste { background: #fdf4ef; border-radius: 8px; padding: 10px 14px; margin-top: 10px; font-size: 0.9rem; }
+  .rueckfrage-box { background: var(--accent-light); border-radius: 8px; padding: 14px; margin-top: 14px; }
+  .progress-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .progress-item:last-child { border-bottom: none; }
+  .level-dots { display: flex; gap: 4px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
+  .dot.filled { background: var(--accent); }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  .status-line { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
+</style>
 </head>
 <body>
-  <h1>Nest</h1>
+<div class="wrap">
+  <h1>🍳 Skillet</h1>
+  <div class="subtitle">Koch-Skills reflektieren und wachsen sehen</div>
 
-  <div id="login-view">
-    <input type="email" id="email" placeholder="E-Mail">
-    <input type="password" id="password" placeholder="Passwort">
-    <button id="auth-submit-btn" onclick="submitAuth()">Login</button>
-    <p id="login-status"></p>
-    <p><a href="#" id="auth-mode-toggle" onclick="toggleAuthMode(); return false;">Noch keinen Account? Registrieren</a></p>
-  </div>
+  <nav>
+    <button id="tab-reflect" class="active" onclick="showTab('reflect')">Reflektieren</button>
+    <button id="tab-recipes" onclick="showTab('recipes')">Rezepte</button>
+    <button id="tab-progress" onclick="showTab('progress')">Fortschritt</button>
+    <button id="tab-history" onclick="showTab('history')">Verlauf</button>
+    <button id="tab-kochen" onclick="showTab('kochen')">Kochen</button>
+  </nav>
 
-  <div id="onboarding-view" style="display:none;">
-    <h2>Haushalt erstellen</h2>
-    <input type="text" id="new-household-name" placeholder="Name (z.B. Unsere WG)">
-    <button onclick="createHousehold()">Haushalt erstellen</button>
-    <p id="create-household-status"></p>
-
-    <h2>Oder: Haushalt beitreten</h2>
-    <input type="text" id="join-code-input" placeholder="Code eingeben">
-    <button onclick="joinHousehold()">Beitreten</button>
-    <p id="join-household-status"></p>
-
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <div id="app-view" style="display:none;">
-    <div class="app-header">
-      <nav class="tabs">
-        <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
-        <button class="tab-btn" id="tab-btn-aufgaben" onclick="showTab('aufgaben')">Aufgaben</button>
-      </nav>
-      <button id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
-    </div>
-
-    <div id="tab-liste" class="tab-panel">
-      <div class="add-card">
-        <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="toggleAddForm()">+ Artikel hinzufügen</button>
-        <div id="add-form" style="display:none;">
-          <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
-          <input type="number" id="item-menge" placeholder="Menge" step="0.1">
-          <select id="item-einheit">
-            <option value="stueck">Stück</option>
-            <option value="gramm">Gramm</option>
-            <option value="kilogramm">Kilogramm</option>
-            <option value="liter">Liter</option>
-            <option value="milliliter">Milliliter</option>
-            <option value="packung">Packung</option>
-          </select>
-          <select id="item-store">
-            <option value="">– kein Laden –</option>
-          </select>
-          <select id="item-department">
-            <option value="">– keine Abteilung –</option>
-          </select>
-          <button onclick="addItem()">Hinzufügen</button>
-          <p id="add-status"></p>
-        </div>
-      </div>
-
-      <h2>Einkaufsliste</h2>
-      <div id="item-list-offen"></div>
-
-      <p>
-        <a href="#" id="toggle-gekauft-link" onclick="toggleGekauft(); return false;">Gekauft anzeigen (0)</a>
-      </p>
-      <ul id="item-list-gekauft" style="display:none;"></ul>
-    </div>
-
-    <div id="tab-aufgaben" class="tab-panel" style="display:none;">
-      <div class="add-card">
-        <button type="button" id="toggle-chore-add-link" class="add-toggle-card" onclick="toggleChoreAddForm()">+ Aufgabe hinzufügen</button>
-        <div id="chore-add-form" style="display:none;">
-          <input type="text" id="chore-title" placeholder="Titel (z.B. Müll rausbringen)">
-          <input type="date" id="chore-due-date">
-          <select id="chore-assigned-to">
-            <option value="">– niemand zugewiesen –</option>
-          </select>
-          <button onclick="addChore()">Hinzufügen</button>
-          <p id="chore-add-status"></p>
-        </div>
-      </div>
-
-      <div class="chore-filter">
-        <button class="chore-filter-btn active" id="chore-filter-alle" onclick="setChoreView('alle')">Alle Aufgaben</button>
-        <button class="chore-filter-btn" id="chore-filter-meine" onclick="setChoreView('meine')">Meine Aufgaben</button>
-      </div>
-      <div id="chore-list-offen"></div>
-
-      <p>
-        <a href="#" id="toggle-chore-done-link" onclick="toggleChoreDone(); return false;">Erledigt anzeigen (0)</a>
-      </p>
-      <ul id="chore-list-erledigt" style="display:none;"></ul>
-    </div>
-
-    <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
-      <button class="settings-close" onclick="closeSettings()" aria-label="Schließen">✕</button>
-
-      <h2>Account</h2>
-      <p id="welcome"></p>
-      <button onclick="logout()">Logout</button>
-
-      <h2>Haushalt</h2>
-      <p>
-        <span id="household-name-display" class="item-name clickable" onclick="startEditHousehold()"></span>
-      </p>
-      <div id="household-edit-form" style="display:none;">
-        <input type="text" id="household-name-input">
-        <button onclick="saveHouseholdName()">Speichern</button>
-        <button onclick="cancelEditHousehold()">Abbrechen</button>
-      </div>
-      <p>Beitritts-Code: <strong id="household-join-code"></strong></p>
-
-      <h2>Läden</h2>
-      <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
-      <input type="text" id="store-address" placeholder="Adresse (optional)">
-      <button onclick="addStore()">Laden hinzufügen</button>
-      <p id="store-status"></p>
-      <ul id="store-list"></ul>
-
-      <h2>Abteilungen</h2>
-      <input type="text" id="department-name" placeholder="Neue Abteilung (z.B. Kühlregal)">
-      <button onclick="addDepartment()">Abteilung hinzufügen</button>
-      <p id="department-status"></p>
-      <ul id="department-list"></ul>
-
-      <h2>Abteilungsreihenfolge je Laden</h2>
-      <select id="order-store-select" onchange="renderDepartmentOrderEditor()">
-        <option value="">– Laden wählen –</option>
+  <!-- REFLECT VIEW -->
+  <div id="view-reflect" class="tab-panel">
+    <div class="card">
+      <label for="reflect-recipe-select">Rezept (optional)</label>
+      <select id="reflect-recipe-select" onchange="onReflectRecipeChange()">
+        <option value="">Kein Rezept / freie Auswahl</option>
       </select>
-      <ul id="department-order-list"></ul>
+
+      <div id="technique-select-wrapper" style="margin-top:14px;">
+        <label for="technique-select">Technik</label>
+        <select id="technique-select" onchange="onTechniqueSelectChange()">
+          <option value="">Automatisch erkennen lassen</option>
+        </select>
+      </div>
+      <div id="technique-fixed-label" style="display:none; margin-top:14px;">
+        <label>Technik</label>
+        <div style="padding:10px 12px; background: var(--accent-light); border-radius:8px; font-weight:600;"></div>
+      </div>
+
+      <div id="auto-titel-wrapper" style="margin-top:14px;">
+        <label for="auto-titel-input">Titel (optional, nur falls kein Rezept gewählt)</label>
+        <input type="text" id="auto-titel-input" placeholder="z. B. Spontan gekocht"
+          style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
+      </div>
+
+      <label style="margin-top:14px;">Was hast du gemacht?</label>
+      <textarea id="beschreibung" placeholder="Beschreibe, was du gemacht und beobachtet hast..."></textarea>
+
+      <button class="primary" id="submit-btn" onclick="submitReflection()">Absenden</button>
+      <div class="status-line" id="status-line"></div>
+    </div>
+
+    <div id="auto-detect-info" class="muted" style="padding:0 4px;"></div>
+    <div id="reflect-vorschlag-card"></div>
+
+    <div id="result-card"></div>
+  </div>
+
+  <!-- RECIPES VIEW -->
+  <div id="view-recipes" class="tab-panel" style="display:none;">
+    <div class="card">
+      <label for="import-url-input">Von URL importieren</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="import-url-input" placeholder="https://..."
+          style="flex:1; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
+        <button class="primary" style="width:auto; padding:10px 18px; margin-top:0;" onclick="importRecipeFromUrl()">Importieren</button>
+      </div>
+      <div class="status-line" id="import-status-line"></div>
+    </div>
+
+    <div class="card">
+      <div id="edit-mode-banner" style="display:none; background: var(--accent-light); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.9rem;">
+        Du bearbeitest eine Kopie von "<span id="edit-mode-original-title"></span>". Wird als neues, eigenständiges Rezept gespeichert.
+        <span id="edit-mode-mengen-hinweis" class="muted" style="display:block; font-size:0.8rem; margin-top:4px;"></span>
+        <a href="#" onclick="cancelEditCopy(); return false;" style="color: var(--accent); margin-left:8px;">Abbrechen</a>
+      </div>
+      <label for="recipe-titel-input">Titel</label>
+      <input type="text" id="recipe-titel-input" placeholder="z. B. Rührei mit Speck"
+        style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
+
+      <label style="margin-top:14px;">Zutaten</label>
+      <div id="zutaten-rows"></div>
+      <button type="button" onclick="addZutatRow()" style="width:auto; padding:6px 14px; font-size:0.85rem; background:none; border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-top:4px;">+ Zutat hinzufügen</button>
+
+      <label style="margin-top:14px;">Portionen (optional, für Mengenumrechnung)</label>
+      <input type="number" id="recipe-portionen-input" min="1" placeholder="z. B. 4"
+        style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:1rem; font-family:inherit;">
+
+      <label style="margin-top:14px;">Anleitung</label>
+      <div id="schritte-rows"></div>
+      <button type="button" onclick="addSchrittRow()" style="width:auto; padding:6px 14px; font-size:0.85rem; background:none; border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-top:4px;">+ Schritt hinzufügen</button>
+
+      <button class="primary" id="recipe-submit-btn" onclick="submitRecipe()" style="margin-top:18px;">Rezept speichern</button>
+      <div class="status-line" id="recipe-status-line"></div>
+    </div>
+
+    <div id="detect-card"></div>
+
+    <div class="card">
+      <div class="muted" style="margin-bottom:10px;">Deine Rezepte</div>
+      <div id="recipe-list"><div class="muted">Lade Rezepte...</div></div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = "https://qanbxxbbngctucjbzfeb.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J";
-    const client = supabase.createClient("https://qanbxxbbngctucjbzfeb.supabase.co", "sb_publishable_mQWyeC7aCRJn29MuHTGG1Q_9ArG0_1J");
-
-    let currentHouseholdId = null;
-    let editingItemId = null;
-    let allItems = [];
-
-    const EINHEIT_LABELS = {
-      stueck: "Stück", gramm: "g", kilogramm: "kg",
-      liter: "l", milliliter: "ml", packung: "Packung"
-    };
-
-    let authMode = 'login';
-    let currentSession = null;
-
-    function toggleAuthMode() {
-      authMode = authMode === 'login' ? 'register' : 'login';
-      document.getElementById('auth-submit-btn').textContent = authMode === 'login' ? 'Login' : 'Registrieren';
-      document.getElementById('auth-mode-toggle').textContent = authMode === 'login'
-        ? 'Noch keinen Account? Registrieren'
-        : 'Schon registriert? Login';
-      document.getElementById('login-status').textContent = '';
-    }
-
-    async function submitAuth() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const statusEl = document.getElementById('login-status');
-
-      if (authMode === 'login') {
-        const { error } = await client.auth.signInWithPassword({ email, password });
-        statusEl.textContent = error ? "Fehler: " + error.message : "";
-      } else {
-        const { error } = await client.auth.signUp({ email, password });
-        statusEl.textContent = error ? "Fehler: " + error.message : "Konto erstellt!";
-      }
-    }
-
-    async function logout() {
-      await client.auth.signOut();
-    }
-
-    async function loadHouseholdId(userId) {
-      const { data, error } = await client
-        .from('household_members')
-        .select('household_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (error) {
-        console.error("Konnte household_id nicht laden:", error);
-        return null;
-      }
-      return data ? data.household_id : null;
-    }
-
-    let storesById = {};
-    let storesFullById = {};
-    let allStores = [];
-    let editingStoreId = null;
-
-    async function loadStores() {
-      const { data, error } = await client
-        .from('stores')
-        .select('*')
-        .order('name');
-
-      if (error) {
-        console.error("Fehler beim Laden der Läden:", error);
-        return;
-      }
-
-      allStores = data;
-      storesById = {};
-      storesFullById = {};
-      data.forEach(store => {
-        storesById[store.id] = store.name;
-        storesFullById[store.id] = store;
-      });
-
-      renderStoreList();
-
-      const selectEl = document.getElementById('item-store');
-      const bisherigeAuswahl = selectEl.value;
-      selectEl.innerHTML = '<option value="">– kein Laden –</option>' +
-        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
-      selectEl.value = bisherigeAuswahl;
-
-      const orderSelectEl = document.getElementById('order-store-select');
-      const bisherigeOrderAuswahl = orderSelectEl.value;
-      orderSelectEl.innerHTML = '<option value="">– Laden wählen –</option>' +
-        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
-      orderSelectEl.value = bisherigeOrderAuswahl;
-      renderDepartmentOrderEditor();
-
-      loadItems();
-    }
-
-    let departmentsById = {};
-    let allDepartments = [];
-    let editingDepartmentId = null;
-
-    async function loadDepartments() {
-      const { data, error } = await client
-        .from('departments')
-        .select('*')
-        .order('name');
-
-      if (error) {
-        console.error("Fehler beim Laden der Abteilungen:", error);
-        return;
-      }
-
-      allDepartments = data;
-      departmentsById = {};
-      data.forEach(dep => { departmentsById[dep.id] = dep.name; });
-
-      renderDepartmentList();
-
-      const selectEl = document.getElementById('item-department');
-      const bisherigeAuswahl = selectEl.value;
-      selectEl.innerHTML = '<option value="">– keine Abteilung –</option>' +
-        data.map(dep => `<option value="${dep.id}">${dep.name}</option>`).join('');
-      selectEl.value = bisherigeAuswahl;
-
-      loadItems();
-    }
-
-    function renderDepartmentList() {
-      document.getElementById('department-list').innerHTML = allDepartments.map(renderDepartmentItem).join('');
-    }
-
-    function getOrderedDepartmentIds(store) {
-      const stored = (store && Array.isArray(store.department_order)) ? store.department_order : [];
-      const validStored = stored.filter(id => departmentsById[id]);
-      const remaining = allDepartments
-        .map(d => d.id)
-        .filter(id => !validStored.includes(id))
-        .sort((a, b) => departmentsById[a].localeCompare(departmentsById[b]));
-      return validStored.concat(remaining);
-    }
-
-    function renderDepartmentOrderEditor() {
-      const storeId = document.getElementById('order-store-select').value;
-      const listEl = document.getElementById('department-order-list');
-
-      if (!storeId) {
-        listEl.innerHTML = '';
-        return;
-      }
-
-      const store = storesFullById[storeId];
-      const orderedIds = getOrderedDepartmentIds(store);
-
-      if (orderedIds.length === 0) {
-        listEl.innerHTML = '<li>Noch keine Abteilungen angelegt.</li>';
-        return;
-      }
-
-      listEl.innerHTML = orderedIds.map((id, index) => `
-        <li>
-          <span class="item-name">${departmentsById[id]}</span>
-          <div class="edit-actions">
-            <button ${index === 0 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, -1)">▲</button>
-            <button ${index === orderedIds.length - 1 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, 1)">▼</button>
-          </div>
-        </li>
-      `).join('');
-    }
-
-    async function moveDepartmentOrder(storeId, index, direction) {
-      const store = storesFullById[storeId];
-      const orderedIds = getOrderedDepartmentIds(store);
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= orderedIds.length) return;
-
-      [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
-
-      const { error } = await client
-        .from('stores')
-        .update({ department_order: orderedIds })
-        .eq('id', storeId);
-
-      if (error) {
-        console.error("Fehler beim Speichern der Reihenfolge:", error);
-        return;
-      }
-
-      storesFullById[storeId] = { ...store, department_order: orderedIds };
-      renderDepartmentOrderEditor();
-      render();
-    }
-
-    function renderDepartmentItem(dep) {
-      if (dep.id === editingDepartmentId) {
-        return `
-          <li class="editing">
-            <input type="text" id="edit-department-name-${dep.id}" value="${escapeHtml(dep.name)}">
-            <div class="edit-actions">
-              <button onclick="saveEditDepartment('${dep.id}')">Speichern</button>
-              <button onclick="cancelEditDepartment()">Abbrechen</button>
-            </div>
-          </li>
-        `;
-      }
-      return `
-        <li>
-          <span class="item-name clickable" onclick="startEditDepartment('${dep.id}')">${dep.name}</span>
-          <button onclick="deleteDepartment('${dep.id}')">löschen</button>
-        </li>
-      `;
-    }
-
-    function startEditDepartment(id) {
-      editingDepartmentId = id;
-      renderDepartmentList();
-    }
-
-    function cancelEditDepartment() {
-      editingDepartmentId = null;
-      renderDepartmentList();
-    }
-
-    async function saveEditDepartment(id) {
-      const nameEl = document.getElementById('edit-department-name-' + id);
-      const name = nameEl.value.trim();
-      if (!name) return;
-
-      const { error } = await client.from('departments').update({ name: name }).eq('id', id);
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      editingDepartmentId = null;
-      loadDepartments();
-    }
-
-    async function deleteDepartment(id) {
-      const dep = departmentsById[id] || "diese Abteilung";
-      if (!confirm(`"${dep}" wirklich löschen? Zugeordnete Artikel verlieren dann ihre Abteilungs-Zuordnung.`)) {
-        return;
-      }
-      const { error } = await client.from('departments').delete().eq('id', id);
-      if (error) {
-        console.error("Fehler beim Löschen:", error);
-        return;
-      }
-      loadDepartments();
-    }
-
-    async function addDepartment() {
-      const nameEl = document.getElementById('department-name');
-      const name = nameEl.value.trim();
-      const statusEl = document.getElementById('department-status');
-
-      if (!name) {
-        statusEl.textContent = "Bitte einen Namen eingeben.";
-        return;
-      }
-
-      const { error } = await client.from('departments').insert({
-        household_id: currentHouseholdId,
-        name: name
-      });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-      } else {
-        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
-        nameEl.value = "";
-        loadDepartments();
-      }
-    }
-
-    function renderStoreList() {
-      document.getElementById('store-list').innerHTML = allStores.map(renderStoreItem).join('');
-    }
-
-    function renderStoreItem(store) {
-      if (store.id === editingStoreId) {
-        return `
-          <li class="editing">
-            <input type="text" id="edit-store-name-${store.id}" value="${escapeHtml(store.name)}" placeholder="Name">
-            <input type="text" id="edit-store-address-${store.id}" value="${escapeHtml(store.address || '')}" placeholder="Adresse (optional)">
-            <div class="edit-actions">
-              <button onclick="saveEditStore('${store.id}')">Speichern</button>
-              <button onclick="cancelEditStore()">Abbrechen</button>
-            </div>
-          </li>
-        `;
-      }
-      return `
-        <li>
-          <span class="item-name clickable" onclick="startEditStore('${store.id}')">
-            ${store.name}
-            ${store.address ? `<br><small class="store-address">${store.address}</small>` : ''}
-          </span>
-          <button onclick="deleteStore('${store.id}')">löschen</button>
-        </li>
-      `;
-    }
-
-    function startEditStore(id) {
-      editingStoreId = id;
-      renderStoreList();
-    }
-
-    function cancelEditStore() {
-      editingStoreId = null;
-      renderStoreList();
-    }
-
-    async function saveEditStore(id) {
-      const nameEl = document.getElementById('edit-store-name-' + id);
-      const addressEl = document.getElementById('edit-store-address-' + id);
-      const name = nameEl.value.trim();
-      const address = addressEl.value.trim();
-      if (!name) return;
-
-      const { error } = await client
-        .from('stores')
-        .update({ name: name, address: address || null })
-        .eq('id', id);
-
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      editingStoreId = null;
-      loadStores();
-    }
-
-    async function deleteStore(id) {
-      const laden = storesById[id] || "diesen Laden";
-      if (!confirm(`"${laden}" wirklich löschen? Zugeordnete Artikel verlieren dann ihre Laden-Zuordnung.`)) {
-        return;
-      }
-      const { error } = await client.from('stores').delete().eq('id', id);
-      if (error) {
-        console.error("Fehler beim Löschen:", error);
-        return;
-      }
-      loadStores();
-    }
-
-    async function addStore() {
-      const nameEl = document.getElementById('store-name');
-      const addressEl = document.getElementById('store-address');
-      const name = nameEl.value.trim();
-      const address = addressEl.value.trim();
-      const statusEl = document.getElementById('store-status');
-
-      if (!name) {
-        statusEl.textContent = "Bitte einen Namen eingeben.";
-        return;
-      }
-
-      const { error } = await client.from('stores').insert({
-        household_id: currentHouseholdId,
-        name: name,
-        address: address || null
-      });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-      } else {
-        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
-        nameEl.value = "";
-        addressEl.value = "";
-        loadStores();
-      }
-    }
-
-    let lastActiveTab = 'liste';
-
-    function showTab(tab) {
-      lastActiveTab = tab;
-      document.getElementById('tab-liste').style.display = tab === 'liste' ? 'block' : 'none';
-      document.getElementById('tab-aufgaben').style.display = tab === 'aufgaben' ? 'block' : 'none';
-      document.getElementById('tab-einstellungen').style.display = 'none';
-      document.getElementById('tab-btn-liste').classList.toggle('active', tab === 'liste');
-      document.getElementById('tab-btn-aufgaben').classList.toggle('active', tab === 'aufgaben');
-    }
-
-    function showSettings() {
-      document.getElementById('tab-liste').style.display = 'none';
-      document.getElementById('tab-aufgaben').style.display = 'none';
-      document.getElementById('tab-einstellungen').style.display = 'block';
-    }
-
-    function closeSettings() {
-      showTab(lastActiveTab);
-    }
-
-    async function showApp(session) {
-      document.getElementById('login-view').style.display = 'none';
-      document.getElementById('onboarding-view').style.display = 'none';
-      document.getElementById('app-view').style.display = 'block';
-      document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
-      showTab('liste');
-      loadStores();
-      loadDepartments();
-      loadHousehold();
-      loadHouseholdMembers();
-      loadChores();
-      subscribeToChanges();
-      subscribeToChoreChanges();
-    }
-
-    function showOnboarding() {
-      document.getElementById('login-view').style.display = 'none';
-      document.getElementById('app-view').style.display = 'none';
-      document.getElementById('onboarding-view').style.display = 'block';
-    }
-
-    function subscribeToChanges() {
-      client
-        .channel('shopping_items_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'shopping_items', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadItems(); }
-        )
-        .subscribe();
-    }
-
-    function subscribeToChoreChanges() {
-      client
-        .channel('chores_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'chores', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadChores(); }
-        )
-        .subscribe();
-    }
-
-    function showLogin() {
-      document.getElementById('login-view').style.display = 'block';
-      document.getElementById('onboarding-view').style.display = 'none';
-      document.getElementById('app-view').style.display = 'none';
-    }
-
-    client.auth.onAuthStateChange(async (event, session) => {
-      currentSession = session;
-      if (session) {
-        currentHouseholdId = await loadHouseholdId(session.user.id);
-        if (currentHouseholdId) {
-          showApp(session);
-        } else {
-          showOnboarding();
-        }
-      } else {
-        showLogin();
-      }
-    });
-
-    async function createHousehold() {
-      const nameEl = document.getElementById('new-household-name');
-      const name = nameEl.value.trim();
-      const statusEl = document.getElementById('create-household-status');
-
-      if (!name) {
-        statusEl.textContent = "Bitte einen Namen eingeben.";
-        return;
-      }
-
-      const { data, error } = await client.rpc('create_household', { household_name: name });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-        return;
-      }
-
-      currentHouseholdId = data[0].id;
-      showApp(currentSession);
-    }
-
-    async function joinHousehold() {
-      const codeEl = document.getElementById('join-code-input');
-      const code = codeEl.value.trim();
-      const statusEl = document.getElementById('join-household-status');
-
-      if (!code) {
-        statusEl.textContent = "Bitte einen Code eingeben.";
-        return;
-      }
-
-      const { data, error } = await client.rpc('join_household_by_code', { code: code });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-        return;
-      }
-
-      currentHouseholdId = data;
-      showApp(currentSession);
-    }
-
-    let currentHousehold = null;
-
-    async function loadHousehold() {
-      const { data, error } = await client
-        .from('households')
-        .select('*')
-        .eq('id', currentHouseholdId)
-        .single();
-
-      if (error) {
-        console.error("Fehler beim Laden des Haushalts:", error);
-        return;
-      }
-
-      currentHousehold = data;
-      renderHousehold();
-    }
-
-    function renderHousehold() {
-      document.getElementById('household-name-display').textContent = currentHousehold.name;
-      document.getElementById('household-join-code').textContent = currentHousehold.join_code;
-    }
-
-    function startEditHousehold() {
-      document.getElementById('household-name-input').value = currentHousehold.name;
-      document.getElementById('household-edit-form').style.display = 'block';
-    }
-
-    function cancelEditHousehold() {
-      document.getElementById('household-edit-form').style.display = 'none';
-    }
-
-    async function saveHouseholdName() {
-      const name = document.getElementById('household-name-input').value.trim();
-      if (!name) return;
-
-      const { error } = await client.from('households').update({ name: name }).eq('id', currentHouseholdId);
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      document.getElementById('household-edit-form').style.display = 'none';
-      loadHousehold();
-    }
-
-    async function addItem() {
-      const name = document.getElementById('item-name').value.trim();
-      const menge = document.getElementById('item-menge').value;
-      const einheit = document.getElementById('item-einheit').value;
-      const storeId = document.getElementById('item-store').value;
-      const departmentId = document.getElementById('item-department').value;
-      const statusEl = document.getElementById('add-status');
-
-      if (!name) {
-        statusEl.textContent = "Bitte einen Namen eingeben.";
-        return;
-      }
-
-      const { data: { user } } = await client.auth.getUser();
-
-      const { error } = await client.from('shopping_items').insert({
-        household_id: currentHouseholdId,
-        name: name,
-        menge: menge ? parseFloat(menge) : null,
-        einheit: einheit,
-        store_id: storeId || null,
-        department_id: departmentId || null,
-        created_by: user.id
-      });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-      } else {
-        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
-        document.getElementById('item-name').value = "";
-        document.getElementById('item-menge').value = "";
-      }
-    }
-
-    function toggleAddForm() {
-      const formEl = document.getElementById('add-form');
-      const istOffen = formEl.style.display !== 'none';
-      formEl.style.display = istOffen ? 'none' : 'block';
-      document.getElementById('toggle-add-link').textContent = istOffen ? "+ Artikel hinzufügen" : "– Formular schließen";
-    }
-
-    let showGekauft = false;
-
-    function toggleGekauft() {
-      showGekauft = !showGekauft;
-      document.getElementById('item-list-gekauft').style.display = showGekauft ? 'block' : 'none';
-      updateToggleLabel();
-    }
-
-    function updateToggleLabel() {
-      const count = document.getElementById('item-list-gekauft').children.length;
-      const link = document.getElementById('toggle-gekauft-link');
-      link.textContent = (showGekauft ? "Gekauft ausblenden (" : "Gekauft anzeigen (") + count + ")";
-    }
-
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function einheitOptions(selected) {
-      return Object.entries(EINHEIT_LABELS).map(([val, label]) =>
-        `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
-      ).join('');
-    }
-
-    function storeOptions(selectedId) {
-      const leer = `<option value="">– kein Laden –</option>`;
-      const optionen = Object.entries(storesById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
-      ).join('');
-      return leer + optionen;
-    }
-
-    function departmentOptions(selectedId) {
-      const leer = `<option value="">– keine Abteilung –</option>`;
-      const optionen = Object.entries(departmentsById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
-      ).join('');
-      return leer + optionen;
-    }
-
-    function startEdit(id) {
-      editingItemId = id;
-      render();
-    }
-
-    function cancelEdit() {
-      editingItemId = null;
-      render();
-    }
-
-    async function saveEdit(id) {
-      const name = document.getElementById('edit-name-' + id).value.trim();
-      const menge = document.getElementById('edit-menge-' + id).value;
-      const einheit = document.getElementById('edit-einheit-' + id).value;
-      const storeId = document.getElementById('edit-store-' + id).value;
-      const departmentId = document.getElementById('edit-department-' + id).value;
-
-      if (!name) return;
-
-      const { error } = await client
-        .from('shopping_items')
-        .update({
-          name: name,
-          menge: menge ? parseFloat(menge) : null,
-          einheit: einheit,
-          store_id: storeId || null,
-          department_id: departmentId || null
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      editingItemId = null;
-    }
-
-    function renderItem(item) {
-      if (item.id === editingItemId) {
-        return `
-          <li class="editing">
-            <input type="text" id="edit-name-${item.id}" value="${escapeHtml(item.name)}">
-            <input type="number" id="edit-menge-${item.id}" value="${item.menge ?? ''}" step="0.1" placeholder="Menge">
-            <select id="edit-einheit-${item.id}">${einheitOptions(item.einheit)}</select>
-            <select id="edit-store-${item.id}">${storeOptions(item.store_id)}</select>
-            <select id="edit-department-${item.id}">${departmentOptions(item.department_id)}</select>
-            <div class="edit-actions">
-              <button onclick="saveEdit('${item.id}')">Speichern</button>
-              <button onclick="cancelEdit()">Abbrechen</button>
-            </div>
-          </li>
-        `;
-      }
-
-      const editable = item.status === 'offen';
-      const nameClass = editable ? 'item-name clickable' : 'item-name';
-      const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
-
-      return `
-        <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
-          <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
-                 onchange="toggleStatus('${item.id}', this.checked)">
-          <span class="${nameClass}"${nameClick}>
-            ${item.name}
-            ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
-          </span>
-          <button onclick="deleteItem('${item.id}')">löschen</button>
-        </li>
-      `;
-    }
-
-    function renderGroupedByDepartment(items, storeId) {
-      const ohneAbteilung = "Ohne Abteilung";
-      const gruppen = {};
-      items.forEach(item => {
-        const depName = item.department_id ? (departmentsById[item.department_id] || "Unbekannte Abteilung") : ohneAbteilung;
-        if (!gruppen[depName]) gruppen[depName] = [];
-        gruppen[depName].push(item);
-      });
-
-      const store = storeId ? storesFullById[storeId] : null;
-      const orderedIds = getOrderedDepartmentIds(store);
-      const orderedNamen = orderedIds.map(id => departmentsById[id]).filter(name => gruppen[name]);
-
-      const bekannteNamen = new Set(orderedNamen);
-      const uebrigeNamen = Object.keys(gruppen)
-        .filter(name => name !== ohneAbteilung && !bekannteNamen.has(name))
-        .sort((a, b) => a.localeCompare(b));
-
-      const depNamen = [...orderedNamen, ...uebrigeNamen];
-      if (gruppen[ohneAbteilung]) depNamen.push(ohneAbteilung);
-
-      return depNamen.map(depName => `
-        <h4>${depName}</h4>
-        <ul>${gruppen[depName].map(renderItem).join('')}</ul>
-      `).join('');
-    }
-
-    function renderGroupedByStore(items) {
-      const ohneLaden = "Ohne Laden";
-      const gruppen = {};
-      items.forEach(item => {
-        const key = item.store_id || 'none';
-        if (!gruppen[key]) {
-          gruppen[key] = {
-            name: item.store_id ? (storesById[item.store_id] || "Unbekannter Laden") : ohneLaden,
-            items: []
-          };
-        }
-        gruppen[key].items.push(item);
-      });
-
-      const keys = Object.keys(gruppen).sort((a, b) => {
-        if (a === 'none') return 1;
-        if (b === 'none') return -1;
-        return gruppen[a].name.localeCompare(gruppen[b].name);
-      });
-
-      return keys.map(key => `
-        <h3>${gruppen[key].name}</h3>
-        ${renderGroupedByDepartment(gruppen[key].items, key === 'none' ? null : key)}
-      `).join('');
-    }
-
-    function toggleChoreAddForm() {
-      const formEl = document.getElementById('chore-add-form');
-      const istOffen = formEl.style.display !== 'none';
-      formEl.style.display = istOffen ? 'none' : 'block';
-      document.getElementById('toggle-chore-add-link').textContent = istOffen ? "+ Aufgabe hinzufügen" : "– Formular schließen";
-    }
-
-    let showChoreDone = false;
-
-    function toggleChoreDone() {
-      showChoreDone = !showChoreDone;
-      document.getElementById('chore-list-erledigt').style.display = showChoreDone ? 'block' : 'none';
-      updateChoreDoneLabel();
-    }
-
-    function updateChoreDoneLabel() {
-      const count = document.getElementById('chore-list-erledigt').children.length;
-      const link = document.getElementById('toggle-chore-done-link');
-      link.textContent = (showChoreDone ? "Erledigt ausblenden (" : "Erledigt anzeigen (") + count + ")";
-    }
-
-    let householdMembers = [];
-    let membersById = {};
-
-    async function loadHouseholdMembers() {
-      const { data, error } = await client.rpc('get_household_members', { target_household_id: currentHouseholdId });
-      if (error) {
-        console.error("Fehler beim Laden der Haushaltsmitglieder:", error);
-        return;
-      }
-
-      householdMembers = data;
-      membersById = {};
-      data.forEach(m => { membersById[m.user_id] = m.email; });
-
-      const selectEl = document.getElementById('chore-assigned-to');
-      const bisherigeAuswahl = selectEl.value;
-      selectEl.innerHTML = memberOptions(null);
-      selectEl.value = bisherigeAuswahl;
-    }
-
-    function memberOptions(selectedId) {
-      const leer = `<option value="">– niemand zugewiesen –</option>`;
-      const optionen = householdMembers.map(m =>
-        `<option value="${m.user_id}" ${m.user_id === selectedId ? 'selected' : ''}>${m.email}</option>`
-      ).join('');
-      return leer + optionen;
-    }
-
-    function formatDueDate(dateStr) {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    }
-
-    let allChores = [];
-    let editingChoreId = null;
-    let choreViewFilter = 'alle';
-
-    function setChoreView(view) {
-      choreViewFilter = view;
-      document.getElementById('chore-filter-alle').classList.toggle('active', view === 'alle');
-      document.getElementById('chore-filter-meine').classList.toggle('active', view === 'meine');
-      renderChores();
-    }
-
-    async function loadChores() {
-      const { data, error } = await client
-        .from('chores')
-        .select('*')
-        .order('due_date', { ascending: true, nullsFirst: false });
-
-      if (error) {
-        console.error("Fehler beim Laden der Aufgaben:", error);
-        return;
-      }
-
-      allChores = data;
-      renderChores();
-    }
-
-    function renderChores() {
-      const eigeneId = currentSession ? currentSession.user.id : null;
-      const sichtbar = choreViewFilter === 'meine'
-        ? allChores.filter(c => c.assigned_to === eigeneId)
-        : allChores;
-
-      const offen = sichtbar.filter(c => c.status === 'offen');
-      const erledigt = sichtbar.filter(c => c.status === 'erledigt');
-
-      document.getElementById('chore-list-offen').innerHTML = offen.length
-        ? offen.map(renderChore).join('')
-        : '<p class="store-address">Keine offenen Aufgaben.</p>';
-      document.getElementById('chore-list-erledigt').innerHTML = erledigt.map(renderChore).join('');
-
-      updateChoreDoneLabel();
-    }
-
-    function renderChore(chore) {
-      if (chore.id === editingChoreId) {
-        return `
-          <li class="editing">
-            <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
-            <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
-            <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
-            <div class="edit-actions">
-              <button onclick="saveEditChore('${chore.id}')">Speichern</button>
-              <button onclick="cancelEditChore()">Abbrechen</button>
-            </div>
-          </li>
-        `;
-      }
-
-      const editable = chore.status === 'offen';
-      const nameClass = editable ? 'item-name clickable' : 'item-name';
-      const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
-      const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
-
-      return `
-        <li style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
-          <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
-                 onchange="toggleChoreStatus('${chore.id}', this.checked)">
-          <span class="${nameClass}"${nameClick}>
-            ${chore.title}
-            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}` : ''}
-            ${assignedName ? `<br><small class="store-address">${assignedName}</small>` : ''}
-          </span>
-          <button onclick="deleteChore('${chore.id}')">löschen</button>
-        </li>
-      `;
-    }
-
-    function startEditChore(id) {
-      editingChoreId = id;
-      renderChores();
-    }
-
-    function cancelEditChore() {
-      editingChoreId = null;
-      renderChores();
-    }
-
-    async function saveEditChore(id) {
-      const title = document.getElementById('edit-chore-title-' + id).value.trim();
-      const dueDate = document.getElementById('edit-chore-due-' + id).value;
-      const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
-
-      if (!title) return;
-
-      const { error } = await client
-        .from('chores')
-        .update({
-          title: title,
-          due_date: dueDate || null,
-          assigned_to: assignedTo || null
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      editingChoreId = null;
-    }
-
-    async function toggleChoreStatus(id, isChecked) {
-      const neuerStatus = isChecked ? 'erledigt' : 'offen';
-      const { error } = await client.from('chores').update({ status: neuerStatus }).eq('id', id);
-      if (error) console.error("Fehler beim Ändern:", error);
-    }
-
-    async function deleteChore(id) {
-      const { error } = await client.from('chores').delete().eq('id', id);
-      if (error) console.error("Fehler beim Löschen:", error);
-    }
-
-    async function addChore() {
-      const titleEl = document.getElementById('chore-title');
-      const dueEl = document.getElementById('chore-due-date');
-      const assignedEl = document.getElementById('chore-assigned-to');
-      const statusEl = document.getElementById('chore-add-status');
-      const title = titleEl.value.trim();
-
-      if (!title) {
-        statusEl.textContent = "Bitte einen Titel eingeben.";
-        return;
-      }
-
-      const { data: { user } } = await client.auth.getUser();
-
-      const { error } = await client.from('chores').insert({
-        household_id: currentHouseholdId,
-        title: title,
-        due_date: dueEl.value || null,
-        assigned_to: assignedEl.value || null,
-        created_by: user.id
-      });
-
-      if (error) {
-        statusEl.textContent = "Fehler: " + error.message;
-      } else {
-        statusEl.textContent = "\"" + title + "\" hinzugefügt!";
-        titleEl.value = "";
-        dueEl.value = "";
-      }
-    }
-
-    async function loadItems() {
-      const { data, error } = await client
-        .from('shopping_items')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Fehler beim Laden:", error);
-        return;
-      }
-
-      allItems = data;
-      render();
-    }
-
-    function render() {
-      const offen = allItems.filter(item => item.status === 'offen');
-      const gekauft = allItems.filter(item => item.status === 'gekauft');
-
-      document.getElementById('item-list-offen').innerHTML = renderGroupedByStore(offen);
-      document.getElementById('item-list-gekauft').innerHTML = gekauft.map(renderItem).join('');
-
-      updateToggleLabel();
-    }
-
-    async function toggleStatus(id, isChecked) {
-      const neuerStatus = isChecked ? 'gekauft' : 'offen';
-      const { error } = await client
-        .from('shopping_items')
-        .update({ status: neuerStatus })
-        .eq('id', id);
-
-      if (error) console.error("Fehler beim Ändern:", error);
-    }
-
-    async function deleteItem(id) {
-      const { error } = await client
-        .from('shopping_items')
-        .delete()
-        .eq('id', id);
-
-      if (error) console.error("Fehler beim Löschen:", error);
-    }
-  </script>
+  <!-- PROGRESS VIEW -->
+  <div id="view-progress" class="tab-panel" style="display:none;">
+    <div class="card" id="progress-list">
+      <div class="muted">Lade Fortschritt...</div>
+    </div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="view-history" class="tab-panel" style="display:none;">
+    <div class="card" id="history-list">
+      <div class="muted">Lade Verlauf...</div>
+    </div>
+  </div>
+
+  <!-- KOCHMODUS START VIEW -->
+  <div id="view-kochen" class="tab-panel" style="display:none;">
+    <div class="card" id="kochmodus-start">
+      <div style="margin-bottom:10px; font-weight:600;">Nach Rezept kochen?</div>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button onclick="kochmodusMitRezept(true)" style="width:auto; flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:none; cursor:pointer;">Ja</button>
+        <button onclick="kochmodusMitRezept(false)" style="width:auto; flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:none; cursor:pointer;">Nein, frei kochen</button>
+      </div>
+      <div id="kochmodus-rezept-auswahl" style="display:none;">
+        <label for="kochmodus-recipe-select">Rezept</label>
+        <select id="kochmodus-recipe-select"></select>
+      </div>
+      <button class="primary" style="margin-top:14px;" onclick="startKochmodus()">Kochmodus starten</button>
+    </div>
+  </div>
+</div>
+
+<!-- KOCHMODUS VOLLBILD-OVERLAY -->
+<div id="kochmodus-overlay" style="display:none; position:fixed; inset:0; background:#1a1512; color:#f0ebe3; z-index:1000; flex-direction:column;"></div>
+
+<script src="shared.js"></script>
+<script src="recipes.js"></script>
+<script src="reflect.js"></script>
+<script src="progress-history.js"></script>
+<script src="kochmodus.js"></script>
+<script src="init.js"></script>
 </body>
 </html>
