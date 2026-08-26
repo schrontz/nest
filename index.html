@@ -1007,6 +1007,16 @@
       return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
+    function getDueUrgency(dueDateStr) {
+      if (!dueDateStr) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(dueDateStr + 'T00:00:00');
+      if (due < today) return 'overdue';
+      if (due.getTime() === today.getTime()) return 'today';
+      return null;
+    }
+
     let allChores = [];
     let editingChoreId = null;
     let choreViewFilter = localStorage.getItem('nest_chore_filter') || 'alle';
@@ -1082,13 +1092,17 @@
             : RECURRENCE_LABELS[chore.recurrence_type])
         : null;
 
+      const urgency = chore.status === 'offen' ? getDueUrgency(chore.due_date) : null;
+      const urgencyClass = urgency === 'overdue' ? 'chore-overdue' : (urgency === 'today' ? 'chore-due-today' : '');
+      const urgencyLabel = urgency === 'overdue' ? ' (überfällig)' : (urgency === 'today' ? ' (heute fällig)' : '');
+
       return `
-        <li style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
+        <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
                  onchange="toggleChoreStatus('${chore.id}', this.checked)">
           <span class="${nameClass}"${nameClick}>
             ${chore.title}
-            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}` : ''}
+            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}
             ${assignedName || recurrenceLabel ? `<br><small class="store-address">${[assignedName, recurrenceLabel].filter(Boolean).join(' · ')}</small>` : ''}
           </span>
           <button onclick="deleteChore('${chore.id}')">löschen</button>
