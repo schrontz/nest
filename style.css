@@ -263,6 +263,16 @@ li.editing input, li.editing select {
   cursor: default;
 }
 
+.chore-overdue {
+  border-left: 4px solid #c0392b;
+  padding-left: calc(0.9rem - 4px);
+}
+
+.chore-due-today {
+  border-left: 4px solid #e2a53a;
+  padding-left: calc(0.9rem - 4px);
+}
+
 .chore-filter {
   display: flex;
   gap: 0.5rem;
