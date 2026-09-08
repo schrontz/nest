@@ -91,6 +91,9 @@
           <select id="chore-assigned-to">
             <option value="">– niemand zugewiesen –</option>
           </select>
+          <select id="chore-room">
+            <option value="">– kein Zimmer –</option>
+          </select>
           <div class="recurrence-fields">
             <input type="number" id="chore-recurrence-value" placeholder="Wiederholt sich alle …" min="1">
             <select id="chore-recurrence-unit">
@@ -109,12 +112,7 @@
         <button class="chore-filter-btn active" id="chore-filter-alle" onclick="setChoreView('alle')">Alle Aufgaben</button>
         <button class="chore-filter-btn" id="chore-filter-meine" onclick="setChoreView('meine')">Meine Aufgaben</button>
       </div>
-      <div id="chore-list-offen"></div>
-
-      <p>
-        <a href="#" id="toggle-chore-done-link" onclick="toggleChoreDone(); return false;">Erledigt anzeigen (0)</a>
-      </p>
-      <ul id="chore-list-erledigt" style="display:none;"></ul>
+      <div id="chore-list"></div>
     </div>
 
     <div id="tab-pflanzen" class="tab-panel" style="display:none;">
@@ -618,13 +616,14 @@
 
       renderRoomList();
 
-      const selectEl = document.getElementById('plant-room');
-      if (selectEl) {
+      ['plant-room', 'chore-room'].forEach(elId => {
+        const selectEl = document.getElementById(elId);
+        if (!selectEl) return;
         const bisherigeAuswahl = selectEl.value;
         selectEl.innerHTML = '<option value="">– kein Zimmer –</option>' +
           data.map(room => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('');
         selectEl.value = bisherigeAuswahl;
-      }
+      });
 
       renderPlantList();
     }
@@ -753,17 +752,16 @@
       document.getElementById('onboarding-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
       showTab(localStorage.getItem('nest_active_tab') || 'liste');
-      // Mitglieder zuerst laden, damit Namen (statt nur E-Mails) schon beim
-      // ersten Rendern von Einkaufsliste und Aufgaben verfügbar sind.
+      // Mitglieder und Zimmer zuerst laden, damit Namen (statt nur E-Mails)
+      // und Zimmer-Bezeichnungen schon beim ersten Rendern von Einkaufsliste,
+      // Aufgaben und Pflanzen verfügbar sind.
       await loadHouseholdMembers();
+      await loadRooms();
       loadStores();
       loadDepartments();
       loadHousehold();
       await resetDueRecurringChores();
       loadChores();
-      // Zimmer zuerst laden, damit Zimmer-Namen schon beim ersten Rendern
-      // der Pflanzenliste verfügbar sind (gleiches Muster wie bei Mitgliedern).
-      await loadRooms();
       loadPlants();
       subscribeToChanges();
       subscribeToChoreChanges();
@@ -1151,20 +1149,6 @@
       const istOffen = formEl.style.display !== 'none';
       formEl.style.display = istOffen ? 'none' : 'block';
       document.getElementById('toggle-chore-add-link').textContent = istOffen ? "+ Aufgabe hinzufügen" : "– Formular schließen";
-    }
-
-    let showChoreDone = false;
-
-    function toggleChoreDone() {
-      showChoreDone = !showChoreDone;
-      document.getElementById('chore-list-erledigt').style.display = showChoreDone ? 'block' : 'none';
-      updateChoreDoneLabel();
-    }
-
-    function updateChoreDoneLabel() {
-      const count = document.getElementById('chore-list-erledigt').children.length;
-      const link = document.getElementById('toggle-chore-done-link');
-      link.textContent = (showChoreDone ? "Erledigt ausblenden (" : "Erledigt anzeigen (") + count + ")";
     }
 
     let householdMembers = [];
@@ -1558,15 +1542,23 @@
         ? allChores.filter(c => c.assigned_to === eigeneId)
         : allChores;
 
-      const offen = sichtbar.filter(c => c.status === 'offen');
-      const erledigt = sichtbar.filter(c => c.status === 'erledigt');
+      // Immer die nächste anstehende zuerst; erledigte wandern (zuletzt
+      // erledigt zuerst) ans Ende der Liste statt komplett zu verschwinden.
+      const offen = sichtbar.filter(c => c.status === 'offen').sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      });
+      const erledigt = sichtbar.filter(c => c.status === 'erledigt').sort((a, b) =>
+        (b.completed_at || '').localeCompare(a.completed_at || '')
+      );
 
-      document.getElementById('chore-list-offen').innerHTML = offen.length
-        ? offen.map(renderChore).join('')
-        : '<p class="store-address">Keine offenen Aufgaben.</p>';
-      document.getElementById('chore-list-erledigt').innerHTML = erledigt.map(renderChore).join('');
+      const combined = offen.concat(erledigt);
 
-      updateChoreDoneLabel();
+      document.getElementById('chore-list').innerHTML = combined.length
+        ? combined.map(renderChore).join('')
+        : '<p class="store-address">Keine Aufgaben.</p>';
     }
 
     function renderChore(chore) {
@@ -1576,6 +1568,7 @@
             <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
             <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
             <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
+            <select id="edit-chore-room-${chore.id}">${roomOptions(chore.room_id)}</select>
             <div class="recurrence-fields">
               <input type="number" id="edit-chore-recurrence-value-${chore.id}" placeholder="Wiederholt sich alle …" min="1"
                      value="${chore.recurrence_interval_value || ''}">
@@ -1596,6 +1589,7 @@
       const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
       const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
       const creatorName = chore.created_by ? (membersById[chore.created_by] || null) : null;
+      const roomName = chore.room_id ? (roomsById[chore.room_id] || null) : null;
       const recurrenceLabel = formatRecurrence(chore.recurrence_interval_value, chore.recurrence_interval_unit);
 
       const urgency = chore.status === 'offen' ? getDueUrgency(chore.due_date) : null;
@@ -1604,16 +1598,21 @@
 
       const metaParts = [];
       if (assignedName) metaParts.push(`Zugewiesen: ${escapeHtml(assignedName)}`);
+      if (roomName) metaParts.push(escapeHtml(roomName));
       if (creatorName) metaParts.push(`Erstellt von ${escapeHtml(creatorName)}`);
       if (recurrenceLabel) metaParts.push(recurrenceLabel);
+
+      const completedName = chore.completed_by ? (membersById[chore.completed_by] || 'Unbekannt') : null;
+      const titleLine = chore.status === 'erledigt'
+        ? `${chore.title} – erledigt${chore.completed_at ? ' am ' + formatDueDate(chore.completed_at.slice(0, 10)) : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
+        : `${chore.title}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
                  onchange="toggleChoreStatus('${chore.id}', this.checked)">
           <span class="${nameClass}"${nameClick}>
-            ${chore.title}
-            ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}
+            ${titleLine}
             ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
           </span>
           <button onclick="deleteChore('${chore.id}')">löschen</button>
@@ -1635,6 +1634,7 @@
       const title = document.getElementById('edit-chore-title-' + id).value.trim();
       const dueDate = document.getElementById('edit-chore-due-' + id).value;
       const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
+      const roomId = document.getElementById('edit-chore-room-' + id).value;
       const recurrenceValueRaw = document.getElementById('edit-chore-recurrence-value-' + id).value;
       const recurrenceUnitEl = document.getElementById('edit-chore-recurrence-unit-' + id);
       const recurrenceValue = recurrenceValueRaw ? parseInt(recurrenceValueRaw) : null;
@@ -1648,6 +1648,7 @@
           title: title,
           due_date: dueDate || null,
           assigned_to: assignedTo || null,
+          room_id: roomId || null,
           recurrence_interval_value: recurrenceValue,
           recurrence_interval_unit: recurrenceUnit
         })
@@ -1680,6 +1681,7 @@
       const titleEl = document.getElementById('chore-title');
       const dueEl = document.getElementById('chore-due-date');
       const assignedEl = document.getElementById('chore-assigned-to');
+      const roomEl = document.getElementById('chore-room');
       const recurrenceValueEl = document.getElementById('chore-recurrence-value');
       const recurrenceUnitEl = document.getElementById('chore-recurrence-unit');
       const statusEl = document.getElementById('chore-add-status');
@@ -1699,6 +1701,7 @@
         title: title,
         due_date: dueEl.value || null,
         assigned_to: assignedEl.value || null,
+        room_id: roomEl.value || null,
         recurrence_interval_value: recurrenceValue,
         recurrence_interval_unit: recurrenceUnit,
         created_by: user.id
@@ -1710,6 +1713,7 @@
         statusEl.textContent = "\"" + title + "\" hinzugefügt!";
         titleEl.value = "";
         dueEl.value = "";
+        roomEl.value = "";
         recurrenceValueEl.value = "";
         recurrenceUnitEl.value = "woche";
       }
