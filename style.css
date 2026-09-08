@@ -332,3 +332,60 @@ li.editing input, li.editing select {
   color: var(--color-secondary-dark);
   min-height: 1.2em;
 }
+
+li.plant-card {
+  display: block;
+}
+
+li.plant-card > p {
+  margin: 0.3rem 0 0;
+}
+
+li.plant-card > a,
+li.plant-card p > a {
+  color: var(--color-secondary);
+  font-size: 0.9rem;
+}
+
+.plant-care-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0.6rem;
+}
+
+.care-task {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-bg);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+
+.care-task.editing {
+  display: block;
+}
+
+.care-task.editing input, .care-task.editing select {
+  margin-bottom: 0.4rem;
+}
+
+.care-task-add-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--color-secondary);
+  border: 1px dashed var(--color-primary-dark);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.care-task-add-btn:hover {
+  background: var(--color-bg);
+}
+
+li.plant-card > button {
+  margin-top: 0.6rem;
+}

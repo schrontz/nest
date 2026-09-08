@@ -43,6 +43,7 @@
       <nav class="tabs">
         <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
         <button class="tab-btn" id="tab-btn-aufgaben" onclick="showTab('aufgaben')">Aufgaben</button>
+        <button class="tab-btn" id="tab-btn-pflanzen" onclick="showTab('pflanzen')">Pflanzen</button>
       </nav>
       <button id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
     </div>
@@ -116,6 +117,24 @@
       <ul id="chore-list-erledigt" style="display:none;"></ul>
     </div>
 
+    <div id="tab-pflanzen" class="tab-panel" style="display:none;">
+      <div class="add-card">
+        <button type="button" id="toggle-plant-add-link" class="add-toggle-card" onclick="togglePlantAddForm()">+ Pflanze hinzufügen</button>
+        <div id="plant-add-form" style="display:none;">
+          <input type="text" id="plant-name" placeholder="Name (z.B. Basilikum am Fenster)">
+          <input type="text" id="plant-species" placeholder="Art (optional, z.B. Ocimum basilicum)">
+          <select id="plant-room">
+            <option value="">– kein Zimmer –</option>
+          </select>
+          <button onclick="addPlant()">Hinzufügen</button>
+          <p id="plant-add-status"></p>
+        </div>
+      </div>
+
+      <h2>Pflanzen</h2>
+      <ul id="plant-list"></ul>
+    </div>
+
     <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
       <button class="settings-close" onclick="closeSettings()" aria-label="Schließen">✕</button>
 
@@ -134,6 +153,9 @@
       <button id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Push-Benachrichtigungen deaktivieren</button>
       <p>
         <label><input type="checkbox" id="notify-chores-checkbox" onchange="saveNotifyChores(this.checked)"> Erinnerung bei fälligen Aufgaben</label>
+      </p>
+      <p>
+        <label><input type="checkbox" id="notify-plants-checkbox" onchange="saveNotifyPlants(this.checked)"> Erinnerung bei fälliger Pflanzenpflege</label>
       </p>
 
       <h2>Haushalt</h2>
@@ -172,6 +194,12 @@
         <option value="">– Laden wählen –</option>
       </select>
       <ul id="department-order-list"></ul>
+
+      <h2>Zimmer</h2>
+      <input type="text" id="room-name" placeholder="Neues Zimmer (z.B. Wohnzimmer)">
+      <button onclick="addRoom()">Zimmer hinzufügen</button>
+      <p id="room-status"></p>
+      <ul id="room-list"></ul>
     </div>
   </div>
 
@@ -569,6 +597,131 @@
       }
     }
 
+    let allRooms = [];
+    let roomsById = {};
+    let editingRoomId = null;
+
+    async function loadRooms() {
+      const { data, error } = await client
+        .from('rooms')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error("Fehler beim Laden der Zimmer:", error);
+        return;
+      }
+
+      allRooms = data;
+      roomsById = {};
+      data.forEach(room => { roomsById[room.id] = room.name; });
+
+      renderRoomList();
+
+      const selectEl = document.getElementById('plant-room');
+      if (selectEl) {
+        const bisherigeAuswahl = selectEl.value;
+        selectEl.innerHTML = '<option value="">– kein Zimmer –</option>' +
+          data.map(room => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('');
+        selectEl.value = bisherigeAuswahl;
+      }
+
+      renderPlantList();
+    }
+
+    function renderRoomList() {
+      document.getElementById('room-list').innerHTML = allRooms.map(renderRoomItem).join('');
+    }
+
+    function renderRoomItem(room) {
+      if (room.id === editingRoomId) {
+        return `
+          <li class="editing">
+            <input type="text" id="edit-room-name-${room.id}" value="${escapeHtml(room.name)}">
+            <div class="edit-actions">
+              <button onclick="saveEditRoom('${room.id}')">Speichern</button>
+              <button onclick="cancelEditRoom()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+      return `
+        <li>
+          <span class="item-name clickable" onclick="startEditRoom('${room.id}')">${escapeHtml(room.name)}</span>
+          <button onclick="deleteRoom('${room.id}')">löschen</button>
+        </li>
+      `;
+    }
+
+    function startEditRoom(id) {
+      editingRoomId = id;
+      renderRoomList();
+    }
+
+    function cancelEditRoom() {
+      editingRoomId = null;
+      renderRoomList();
+    }
+
+    async function saveEditRoom(id) {
+      const nameEl = document.getElementById('edit-room-name-' + id);
+      const name = nameEl.value.trim();
+      if (!name) return;
+
+      const { error } = await client.from('rooms').update({ name: name }).eq('id', id);
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingRoomId = null;
+      loadRooms();
+    }
+
+    async function deleteRoom(id) {
+      const room = roomsById[id] || "dieses Zimmer";
+      if (!confirm(`"${room}" wirklich löschen? Zugeordnete Pflanzen verlieren dann ihre Zimmer-Zuordnung.`)) {
+        return;
+      }
+      const { error } = await client.from('rooms').delete().eq('id', id);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      loadRooms();
+    }
+
+    async function addRoom() {
+      const nameEl = document.getElementById('room-name');
+      const name = nameEl.value.trim();
+      const statusEl = document.getElementById('room-status');
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { error } = await client.from('rooms').insert({
+        household_id: currentHouseholdId,
+        name: name
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
+        nameEl.value = "";
+        loadRooms();
+      }
+    }
+
+    function roomOptions(selectedId) {
+      const leer = `<option value="">– kein Zimmer –</option>`;
+      const optionen = allRooms.map(room =>
+        `<option value="${room.id}" ${room.id === selectedId ? 'selected' : ''}>${escapeHtml(room.name)}</option>`
+      ).join('');
+      return leer + optionen;
+    }
+
     let lastActiveTab = 'liste';
 
     function showTab(tab) {
@@ -576,9 +729,11 @@
       localStorage.setItem('nest_active_tab', tab);
       document.getElementById('tab-liste').style.display = tab === 'liste' ? 'block' : 'none';
       document.getElementById('tab-aufgaben').style.display = tab === 'aufgaben' ? 'block' : 'none';
+      document.getElementById('tab-pflanzen').style.display = tab === 'pflanzen' ? 'block' : 'none';
       document.getElementById('tab-einstellungen').style.display = 'none';
       document.getElementById('tab-btn-liste').classList.toggle('active', tab === 'liste');
       document.getElementById('tab-btn-aufgaben').classList.toggle('active', tab === 'aufgaben');
+      document.getElementById('tab-btn-pflanzen').classList.toggle('active', tab === 'pflanzen');
     }
 
     function showSettings() {
@@ -606,8 +761,14 @@
       loadHousehold();
       await resetDueRecurringChores();
       loadChores();
+      // Zimmer zuerst laden, damit Zimmer-Namen schon beim ersten Rendern
+      // der Pflanzenliste verfügbar sind (gleiches Muster wie bei Mitgliedern).
+      await loadRooms();
+      loadPlants();
       subscribeToChanges();
       subscribeToChoreChanges();
+      subscribeToPlantChanges();
+      subscribeToCareTaskChanges();
       setChoreView(choreViewFilter);
     }
 
@@ -633,6 +794,26 @@
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'chores', filter: `household_id=eq.${currentHouseholdId}` },
           () => { loadChores(); }
+        )
+        .subscribe();
+    }
+
+    function subscribeToPlantChanges() {
+      client
+        .channel('plants_changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'plants', filter: `household_id=eq.${currentHouseholdId}` },
+          () => { loadPlants(); }
+        )
+        .subscribe();
+    }
+
+    function subscribeToCareTaskChanges() {
+      client
+        .channel('plant_care_tasks_changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'plant_care_tasks', filter: `household_id=eq.${currentHouseholdId}` },
+          () => { loadCareTasks(); }
         )
         .subscribe();
     }
@@ -1192,7 +1373,7 @@
       const { data: { user } } = await client.auth.getUser();
       const { data, error } = await client
         .from('profiles')
-        .select('notify_chores')
+        .select('notify_chores, notify_plants')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -1201,6 +1382,7 @@
         return;
       }
       document.getElementById('notify-chores-checkbox').checked = data ? data.notify_chores !== false : true;
+      document.getElementById('notify-plants-checkbox').checked = data ? data.notify_plants !== false : true;
     }
 
     async function saveNotifyChores(checked) {
@@ -1208,6 +1390,15 @@
       const { error } = await client
         .from('profiles')
         .upsert({ id: user.id, notify_chores: checked, updated_at: new Date().toISOString() });
+
+      if (error) console.error("Fehler beim Speichern:", error);
+    }
+
+    async function saveNotifyPlants(checked) {
+      const { data: { user } } = await client.auth.getUser();
+      const { error } = await client
+        .from('profiles')
+        .upsert({ id: user.id, notify_plants: checked, updated_at: new Date().toISOString() });
 
       if (error) console.error("Fehler beim Speichern:", error);
     }
@@ -1522,6 +1713,338 @@
         recurrenceValueEl.value = "";
         recurrenceUnitEl.value = "woche";
       }
+    }
+
+    const CARE_TYPE_LABELS = { giessen: 'Gießen', duengen: 'Düngen', umtopfen: 'Umtopfen' };
+    const CARE_TYPES = ['giessen', 'duengen', 'umtopfen'];
+
+    let allPlants = [];
+    let plantsById = {};
+    let editingPlantId = null;
+
+    async function loadPlants() {
+      const { data, error } = await client
+        .from('plants')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error("Fehler beim Laden der Pflanzen:", error);
+        return;
+      }
+
+      allPlants = data;
+      plantsById = {};
+      data.forEach(plant => { plantsById[plant.id] = plant; });
+
+      await loadCareTasks();
+    }
+
+    function togglePlantAddForm() {
+      const formEl = document.getElementById('plant-add-form');
+      const istOffen = formEl.style.display !== 'none';
+      formEl.style.display = istOffen ? 'none' : 'block';
+      document.getElementById('toggle-plant-add-link').textContent = istOffen ? "+ Pflanze hinzufügen" : "– Formular schließen";
+    }
+
+    async function addPlant() {
+      const nameEl = document.getElementById('plant-name');
+      const speciesEl = document.getElementById('plant-species');
+      const roomEl = document.getElementById('plant-room');
+      const statusEl = document.getElementById('plant-add-status');
+      const name = nameEl.value.trim();
+      const species = speciesEl.value.trim();
+
+      if (!name) {
+        statusEl.textContent = "Bitte einen Namen eingeben.";
+        return;
+      }
+
+      const { data: { user } } = await client.auth.getUser();
+
+      const { error } = await client.from('plants').insert({
+        household_id: currentHouseholdId,
+        name: name,
+        species: species || null,
+        room_id: roomEl.value || null,
+        created_by: user.id
+      });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+      } else {
+        statusEl.textContent = "\"" + name + "\" hinzugefügt!";
+        nameEl.value = "";
+        speciesEl.value = "";
+        roomEl.value = "";
+      }
+    }
+
+    function startEditPlant(id) {
+      editingPlantId = id;
+      renderPlantList();
+    }
+
+    function cancelEditPlant() {
+      editingPlantId = null;
+      renderPlantList();
+    }
+
+    async function saveEditPlant(id) {
+      const name = document.getElementById('edit-plant-name-' + id).value.trim();
+      const species = document.getElementById('edit-plant-species-' + id).value.trim();
+      const roomId = document.getElementById('edit-plant-room-' + id).value;
+      if (!name) return;
+
+      const { error } = await client
+        .from('plants')
+        .update({ name: name, species: species || null, room_id: roomId || null })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingPlantId = null;
+    }
+
+    async function deletePlant(id) {
+      const plant = plantsById[id];
+      const name = plant ? plant.name : "diese Pflanze";
+      if (!confirm(`"${name}" wirklich löschen? Zugehörige Pflege-Erinnerungen werden mitgelöscht.`)) {
+        return;
+      }
+      const { error } = await client.from('plants').delete().eq('id', id);
+      if (error) console.error("Fehler beim Löschen:", error);
+    }
+
+    function renderPlantList() {
+      const listEl = document.getElementById('plant-list');
+      if (!listEl) return;
+      listEl.innerHTML = allPlants.length
+        ? allPlants.map(renderPlant).join('')
+        : '<li class="store-address" style="box-shadow:none; background:none;">Noch keine Pflanzen angelegt.</li>';
+    }
+
+    function renderPlant(plant) {
+      if (plant.id === editingPlantId) {
+        return `
+          <li class="editing plant-card">
+            <input type="text" id="edit-plant-name-${plant.id}" value="${escapeHtml(plant.name)}" placeholder="Name">
+            <input type="text" id="edit-plant-species-${plant.id}" value="${escapeHtml(plant.species || '')}" placeholder="Art (optional)">
+            <select id="edit-plant-room-${plant.id}">${roomOptions(plant.room_id)}</select>
+            <div class="edit-actions">
+              <button onclick="saveEditPlant('${plant.id}')">Speichern</button>
+              <button onclick="cancelEditPlant()">Abbrechen</button>
+            </div>
+          </li>
+        `;
+      }
+
+      const roomName = plant.room_id ? (roomsById[plant.room_id] || null) : null;
+      const searchQuery = encodeURIComponent(((plant.species && plant.species.trim()) ? plant.species : plant.name) + ' pflege');
+      const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
+      const tasksHtml = CARE_TYPES.map(type => renderCareTaskSlot(plant.id, type)).join('');
+
+      return `
+        <li class="plant-card">
+          <span class="item-name clickable" onclick="startEditPlant('${plant.id}')">
+            ${escapeHtml(plant.name)}
+            ${plant.species ? `<br><small class="store-address">${escapeHtml(plant.species)}</small>` : ''}
+            ${roomName ? `<br><small class="store-address">${escapeHtml(roomName)}</small>` : ''}
+          </span>
+          <p><a href="${searchUrl}" target="_blank" rel="noopener">Pflege-Infos suchen ↗</a></p>
+          <div class="plant-care-tasks">${tasksHtml}</div>
+          <button onclick="deletePlant('${plant.id}')">löschen</button>
+        </li>
+      `;
+    }
+
+    let allCareTasks = [];
+    let careTasksByPlant = {};
+    let editingCareTaskId = null;
+    let addingCareTaskFor = null;
+
+    async function loadCareTasks() {
+      const { data, error } = await client
+        .from('plant_care_tasks')
+        .select('*');
+
+      if (error) {
+        console.error("Fehler beim Laden der Pflege-Aufgaben:", error);
+        return;
+      }
+
+      allCareTasks = data;
+      careTasksByPlant = {};
+      data.forEach(task => {
+        if (!careTasksByPlant[task.plant_id]) careTasksByPlant[task.plant_id] = {};
+        careTasksByPlant[task.plant_id][task.type] = task;
+      });
+
+      renderPlantList();
+    }
+
+    function startAddCareTask(plantId, type) {
+      addingCareTaskFor = { plantId, type };
+      renderPlantList();
+    }
+
+    function cancelAddCareTask() {
+      addingCareTaskFor = null;
+      renderPlantList();
+    }
+
+    async function addCareTask(plantId, type) {
+      const dueEl = document.getElementById(`new-care-due-${plantId}-${type}`);
+      const assignedEl = document.getElementById(`new-care-assigned-${plantId}-${type}`);
+      const recurrenceValueEl = document.getElementById(`new-care-recurrence-value-${plantId}-${type}`);
+      const recurrenceUnitEl = document.getElementById(`new-care-recurrence-unit-${plantId}-${type}`);
+
+      const { data: { user } } = await client.auth.getUser();
+      const recurrenceValue = recurrenceValueEl.value ? parseInt(recurrenceValueEl.value) : null;
+      const recurrenceUnit = recurrenceValue ? recurrenceUnitEl.value : null;
+
+      const { error } = await client.from('plant_care_tasks').insert({
+        plant_id: plantId,
+        household_id: currentHouseholdId,
+        type: type,
+        due_date: dueEl.value || null,
+        assigned_to: assignedEl.value || null,
+        recurrence_interval_value: recurrenceValue,
+        recurrence_interval_unit: recurrenceUnit,
+        created_by: user.id
+      });
+
+      if (error) {
+        alert("Fehler: " + error.message);
+        return;
+      }
+      addingCareTaskFor = null;
+    }
+
+    function startEditCareTask(id) {
+      editingCareTaskId = id;
+      renderPlantList();
+    }
+
+    function cancelEditCareTask() {
+      editingCareTaskId = null;
+      renderPlantList();
+    }
+
+    async function saveEditCareTask(id) {
+      const dueDate = document.getElementById('edit-care-due-' + id).value;
+      const assignedTo = document.getElementById('edit-care-assigned-' + id).value;
+      const recurrenceValueRaw = document.getElementById('edit-care-recurrence-value-' + id).value;
+      const recurrenceUnitEl = document.getElementById('edit-care-recurrence-unit-' + id);
+      const recurrenceValue = recurrenceValueRaw ? parseInt(recurrenceValueRaw) : null;
+      const recurrenceUnit = recurrenceValue ? recurrenceUnitEl.value : null;
+
+      const { error } = await client
+        .from('plant_care_tasks')
+        .update({
+          due_date: dueDate || null,
+          assigned_to: assignedTo || null,
+          recurrence_interval_value: recurrenceValue,
+          recurrence_interval_unit: recurrenceUnit
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Fehler beim Speichern:", error);
+        return;
+      }
+      editingCareTaskId = null;
+    }
+
+    async function toggleCareTaskStatus(id, isChecked) {
+      const neuerStatus = isChecked ? 'erledigt' : 'offen';
+      const { error } = await client.from('plant_care_tasks').update({ status: neuerStatus }).eq('id', id);
+      if (error) console.error("Fehler beim Ändern:", error);
+    }
+
+    async function deleteCareTask(id) {
+      if (!confirm("Diese Pflege-Erinnerung wirklich entfernen?")) {
+        return;
+      }
+      const { error } = await client.from('plant_care_tasks').delete().eq('id', id);
+      if (error) console.error("Fehler beim Löschen:", error);
+    }
+
+    function renderCareTaskEditForm(task) {
+      const label = CARE_TYPE_LABELS[task.type];
+      return `
+        <div class="care-task editing">
+          <strong>${label}</strong>
+          <input type="date" id="edit-care-due-${task.id}" value="${task.due_date || ''}">
+          <select id="edit-care-assigned-${task.id}">${memberOptions(task.assigned_to)}</select>
+          <div class="recurrence-fields">
+            <input type="number" id="edit-care-recurrence-value-${task.id}" placeholder="Wiederholt sich alle …" min="1"
+                   value="${task.recurrence_interval_value || ''}">
+            <select id="edit-care-recurrence-unit-${task.id}">
+              ${recurrenceUnitOptions(task.recurrence_interval_unit || 'woche')}
+            </select>
+          </div>
+          <div class="edit-actions">
+            <button onclick="saveEditCareTask('${task.id}')">Speichern</button>
+            <button onclick="cancelEditCareTask()">Abbrechen</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCareTaskSlot(plantId, type) {
+      const task = (careTasksByPlant[plantId] || {})[type];
+      const label = CARE_TYPE_LABELS[type];
+
+      if (!task) {
+        if (addingCareTaskFor && addingCareTaskFor.plantId === plantId && addingCareTaskFor.type === type) {
+          return `
+            <div class="care-task editing">
+              <strong>${label}</strong>
+              <input type="date" id="new-care-due-${plantId}-${type}">
+              <select id="new-care-assigned-${plantId}-${type}">${memberOptions(null)}</select>
+              <div class="recurrence-fields">
+                <input type="number" id="new-care-recurrence-value-${plantId}-${type}" placeholder="Wiederholt sich alle …" min="1">
+                <select id="new-care-recurrence-unit-${plantId}-${type}">${recurrenceUnitOptions('woche')}</select>
+              </div>
+              <div class="edit-actions">
+                <button onclick="addCareTask('${plantId}', '${type}')">Hinzufügen</button>
+                <button onclick="cancelAddCareTask()">Abbrechen</button>
+              </div>
+            </div>
+          `;
+        }
+        return `<button class="care-task-add-btn" onclick="startAddCareTask('${plantId}', '${type}')">+ ${label}</button>`;
+      }
+
+      if (task.id === editingCareTaskId) {
+        return renderCareTaskEditForm(task);
+      }
+
+      const assignedName = task.assigned_to ? (membersById[task.assigned_to] || 'Unbekannt') : null;
+      const recurrenceLabel = formatRecurrence(task.recurrence_interval_value, task.recurrence_interval_unit);
+      const urgency = task.status === 'offen' ? getDueUrgency(task.due_date) : null;
+      const urgencyClass = urgency === 'overdue' ? 'chore-overdue' : (urgency === 'today' ? 'chore-due-today' : '');
+      const urgencyLabel = urgency === 'overdue' ? ' (überfällig)' : (urgency === 'today' ? ' (heute fällig)' : '');
+
+      const metaParts = [];
+      if (assignedName) metaParts.push(`Zugewiesen: ${escapeHtml(assignedName)}`);
+      if (recurrenceLabel) metaParts.push(recurrenceLabel);
+
+      return `
+        <div class="care-task ${urgencyClass}" style="${task.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${task.status === 'erledigt' ? 'checked' : ''}
+                 onchange="toggleCareTaskStatus('${task.id}', this.checked)">
+          <span class="item-name clickable" onclick="startEditCareTask('${task.id}')">
+            ${label}
+            ${task.due_date ? ` – fällig ${formatDueDate(task.due_date)}${urgencyLabel}` : ''}
+            ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
+          </span>
+          <button onclick="deleteCareTask('${task.id}')">entfernen</button>
+        </div>
+      `;
     }
 
     async function loadItems() {
