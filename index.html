@@ -137,7 +137,11 @@
         <button onclick="saveHouseholdName()">Speichern</button>
         <button onclick="cancelEditHousehold()">Abbrechen</button>
       </div>
-      <p>Beitritts-Code: <strong id="household-join-code"></strong></p>
+      <p>Beitritts-Code zum Einladen: <strong id="household-join-code"></strong></p>
+
+      <h3>Mitglieder</h3>
+      <ul id="household-member-list"></ul>
+      <button onclick="leaveHousehold()">Haushalt verlassen</button>
 
       <h2>Läden</h2>
       <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
@@ -956,6 +960,55 @@
       selectEl.value = bisherigeAuswahl;
 
       updateOwnProfileUI();
+      renderHouseholdMemberList();
+    }
+
+    function renderHouseholdMemberList() {
+      const listEl = document.getElementById('household-member-list');
+      if (!listEl) return;
+      const selfId = currentSession ? currentSession.user.id : null;
+
+      listEl.innerHTML = householdMembers.map(m => `
+        <li>
+          <span class="item-name">${escapeHtml(memberLabel(m))}${m.user_id === selfId ? ' (du)' : ''}</span>
+          ${m.user_id !== selfId ? `<button onclick="removeMember('${m.user_id}')">entfernen</button>` : ''}
+        </li>
+      `).join('');
+    }
+
+    async function removeMember(userId) {
+      const member = householdMembers.find(m => m.user_id === userId);
+      const name = member ? memberLabel(member) : "dieses Mitglied";
+      if (!confirm(`"${name}" wirklich aus dem Haushalt entfernen? Zugewiesene Aufgaben werden freigegeben.`)) {
+        return;
+      }
+
+      const { error } = await client.rpc('remove_household_member', {
+        target_household_id: currentHouseholdId,
+        target_user_id: userId
+      });
+
+      if (error) {
+        alert("Fehler: " + error.message);
+        return;
+      }
+      await loadHouseholdMembers();
+      loadChores();
+    }
+
+    async function leaveHousehold() {
+      if (!confirm("Diesen Haushalt wirklich verlassen? Du verlierst den Zugriff auf die gemeinsame Einkaufsliste und Aufgaben.")) {
+        return;
+      }
+
+      const { error } = await client.rpc('leave_household', { target_household_id: currentHouseholdId });
+
+      if (error) {
+        alert("Fehler: " + error.message);
+        return;
+      }
+      currentHouseholdId = null;
+      showOnboarding();
     }
 
     function memberLabel(m) {
@@ -1246,6 +1299,11 @@
     }
 
     async function deleteChore(id) {
+      const chore = allChores.find(c => c.id === id);
+      const title = chore ? chore.title : "diese Aufgabe";
+      if (!confirm(`"${title}" wirklich löschen?`)) {
+        return;
+      }
       const { error } = await client.from('chores').delete().eq('id', id);
       if (error) console.error("Fehler beim Löschen:", error);
     }
@@ -1325,6 +1383,11 @@
     }
 
     async function deleteItem(id) {
+      const item = allItems.find(i => i.id === id);
+      const name = item ? item.name : "diesen Artikel";
+      if (!confirm(`"${name}" wirklich löschen?`)) {
+        return;
+      }
       const { error } = await client
         .from('shopping_items')
         .delete()
