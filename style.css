@@ -199,6 +199,77 @@ h4 {
   background: rgba(0, 0, 0, 0.06);
 }
 
+.settings-title {
+  margin: 0 2.5rem 1rem 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Aufklappbare Gruppen: <details>/<summary> statt einer langen Liste –
+   ohne JS, und auf dem Handy deutlich kürzer zu überblicken. */
+.settings-group {
+  background: var(--color-surface);
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.settings-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.85rem 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-secondary-dark);
+  list-style: none;
+  border-radius: 10px;
+}
+
+.settings-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-group > summary::after {
+  content: "⌄";
+  color: var(--color-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  transform: translateY(-0.15em);
+  transition: transform 0.15s ease;
+}
+
+.settings-group[open] > summary::after {
+  transform: translateY(0.1em) rotate(180deg);
+}
+
+.settings-group > summary:hover {
+  background: var(--color-bg);
+}
+
+.settings-group-body {
+  padding: 0 0.9rem 1rem;
+}
+
+.settings-group-body > h3:first-child {
+  margin-top: 0;
+}
+
+.settings-hint {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
+/* Listen (Läden, Abteilungen, Zimmer, Mitglieder) liegen jetzt auf einer
+   weissen Gruppen-Karte – daher abgesetzter Hintergrund statt weiss auf weiss. */
+.settings-group-body li {
+  background: var(--color-bg);
+  box-shadow: none;
+}
+
 .tabs {
   display: flex;
   gap: 2px;

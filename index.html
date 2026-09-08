@@ -135,69 +135,97 @@
 
     <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
       <button class="settings-close" onclick="closeSettings()" aria-label="Schließen">✕</button>
+      <h2 class="settings-title">Einstellungen</h2>
 
-      <h2>Account</h2>
-      <p id="welcome"></p>
-      <button onclick="logout()">Logout</button>
+      <details class="settings-group" open>
+        <summary>Mein Konto</summary>
+        <div class="settings-group-body">
+          <p id="welcome"></p>
 
-      <h2>Profil</h2>
-      <input type="text" id="display-name-input" placeholder="Dein Anzeigename (z.B. Max)" maxlength="60">
-      <button onclick="saveDisplayName()">Speichern</button>
-      <p id="display-name-status"></p>
+          <h3>Anzeigename</h3>
+          <p class="settings-hint">So erscheinst du für die anderen im Haushalt.</p>
+          <input type="text" id="display-name-input" placeholder="Dein Anzeigename (z.B. Max)" maxlength="60">
+          <button onclick="saveDisplayName()">Speichern</button>
+          <p id="display-name-status"></p>
 
-      <h2>Benachrichtigungen</h2>
-      <p id="push-status"></p>
-      <button id="push-enable-btn" onclick="enablePushNotifications()">Push-Benachrichtigungen aktivieren</button>
-      <button id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Push-Benachrichtigungen deaktivieren</button>
-      <p>
-        <label><input type="checkbox" id="notify-chores-checkbox" onchange="saveNotifyChores(this.checked)"> Erinnerung bei fälligen Aufgaben</label>
-      </p>
-      <p>
-        <label><input type="checkbox" id="notify-plants-checkbox" onchange="saveNotifyPlants(this.checked)"> Erinnerung bei fälliger Pflanzenpflege</label>
-      </p>
+          <h3>Benachrichtigungen</h3>
+          <p class="settings-hint">Push muss auf jedem Gerät einzeln aktiviert werden.</p>
+          <p id="push-status"></p>
+          <button id="push-enable-btn" onclick="enablePushNotifications()">Push-Benachrichtigungen aktivieren</button>
+          <button id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Push-Benachrichtigungen deaktivieren</button>
+          <p>
+            <label><input type="checkbox" id="notify-chores-checkbox" onchange="saveNotifyChores(this.checked)"> Erinnerung bei fälligen Aufgaben</label>
+          </p>
+          <p>
+            <label><input type="checkbox" id="notify-plants-checkbox" onchange="saveNotifyPlants(this.checked)"> Erinnerung bei fälliger Pflanzenpflege</label>
+          </p>
 
-      <h2>Haushalt</h2>
-      <p>
-        <span id="household-name-display" class="item-name clickable" onclick="startEditHousehold()"></span>
-      </p>
-      <div id="household-edit-form" style="display:none;">
-        <input type="text" id="household-name-input">
-        <button onclick="saveHouseholdName()">Speichern</button>
-        <button onclick="cancelEditHousehold()">Abbrechen</button>
-      </div>
-      <p>
-        Beitritts-Code zum Einladen: <strong id="household-join-code"></strong>
-        <button onclick="regenerateJoinCode()">Neu generieren</button>
-      </p>
+          <h3>Abmelden</h3>
+          <button onclick="logout()">Logout</button>
+        </div>
+      </details>
 
-      <h3>Mitglieder</h3>
-      <ul id="household-member-list"></ul>
-      <button onclick="leaveHousehold()">Haushalt verlassen</button>
+      <details class="settings-group">
+        <summary>Haushalt</summary>
+        <div class="settings-group-body">
+          <h3>Name</h3>
+          <p>
+            <span id="household-name-display" class="item-name clickable" onclick="startEditHousehold()"></span>
+          </p>
+          <div id="household-edit-form" style="display:none;">
+            <input type="text" id="household-name-input">
+            <button onclick="saveHouseholdName()">Speichern</button>
+            <button onclick="cancelEditHousehold()">Abbrechen</button>
+          </div>
 
-      <h2>Läden</h2>
-      <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
-      <input type="text" id="store-address" placeholder="Adresse (optional)">
-      <button onclick="addStore()">Laden hinzufügen</button>
-      <p id="store-status"></p>
-      <ul id="store-list"></ul>
+          <h3>Einladen</h3>
+          <p class="settings-hint">Mit diesem Code kann jemand deinem Haushalt beitreten.</p>
+          <p>
+            Beitritts-Code: <strong id="household-join-code"></strong>
+            <button onclick="regenerateJoinCode()">Neu generieren</button>
+          </p>
 
-      <h2>Abteilungen</h2>
-      <input type="text" id="department-name" placeholder="Neue Abteilung (z.B. Kühlregal)">
-      <button onclick="addDepartment()">Abteilung hinzufügen</button>
-      <p id="department-status"></p>
-      <ul id="department-list"></ul>
+          <h3>Mitglieder</h3>
+          <ul id="household-member-list"></ul>
+          <button onclick="leaveHousehold()">Haushalt verlassen</button>
+        </div>
+      </details>
 
-      <h2>Abteilungsreihenfolge je Laden</h2>
-      <select id="order-store-select" onchange="renderDepartmentOrderEditor()">
-        <option value="">– Laden wählen –</option>
-      </select>
-      <ul id="department-order-list"></ul>
+      <details class="settings-group">
+        <summary>Einkaufsliste</summary>
+        <div class="settings-group-body">
+          <h3>Läden</h3>
+          <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
+          <input type="text" id="store-address" placeholder="Adresse (optional)">
+          <button onclick="addStore()">Laden hinzufügen</button>
+          <p id="store-status"></p>
+          <ul id="store-list"></ul>
 
-      <h2>Zimmer</h2>
-      <input type="text" id="room-name" placeholder="Neues Zimmer (z.B. Wohnzimmer)">
-      <button onclick="addRoom()">Zimmer hinzufügen</button>
-      <p id="room-status"></p>
-      <ul id="room-list"></ul>
+          <h3>Abteilungen</h3>
+          <input type="text" id="department-name" placeholder="Neue Abteilung (z.B. Kühlregal)">
+          <button onclick="addDepartment()">Abteilung hinzufügen</button>
+          <p id="department-status"></p>
+          <ul id="department-list"></ul>
+
+          <h3>Reihenfolge je Laden</h3>
+          <p class="settings-hint">Bestimmt, in welcher Reihenfolge die Abteilungen auf der Einkaufsliste erscheinen.</p>
+          <select id="order-store-select" onchange="renderDepartmentOrderEditor()">
+            <option value="">– Laden wählen –</option>
+          </select>
+          <ul id="department-order-list"></ul>
+        </div>
+      </details>
+
+      <details class="settings-group">
+        <summary>Zimmer</summary>
+        <div class="settings-group-body">
+          <p class="settings-hint">Zimmer lassen sich Aufgaben und Pflanzen zuordnen.</p>
+          <input type="text" id="room-name" placeholder="Neues Zimmer (z.B. Wohnzimmer)">
+          <button onclick="addRoom()">Zimmer hinzufügen</button>
+          <p id="room-status"></p>
+          <ul id="room-list"></ul>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -307,13 +335,13 @@
       const selectEl = document.getElementById('item-store');
       const bisherigeAuswahl = selectEl.value;
       selectEl.innerHTML = '<option value="">– kein Laden –</option>' +
-        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+        data.map(store => `<option value="${store.id}">${escapeHtml(store.name)}</option>`).join('');
       selectEl.value = bisherigeAuswahl;
 
       const orderSelectEl = document.getElementById('order-store-select');
       const bisherigeOrderAuswahl = orderSelectEl.value;
       orderSelectEl.innerHTML = '<option value="">– Laden wählen –</option>' +
-        data.map(store => `<option value="${store.id}">${store.name}</option>`).join('');
+        data.map(store => `<option value="${store.id}">${escapeHtml(store.name)}</option>`).join('');
       orderSelectEl.value = bisherigeOrderAuswahl;
       renderDepartmentOrderEditor();
 
@@ -344,7 +372,7 @@
       const selectEl = document.getElementById('item-department');
       const bisherigeAuswahl = selectEl.value;
       selectEl.innerHTML = '<option value="">– keine Abteilung –</option>' +
-        data.map(dep => `<option value="${dep.id}">${dep.name}</option>`).join('');
+        data.map(dep => `<option value="${dep.id}">${escapeHtml(dep.name)}</option>`).join('');
       selectEl.value = bisherigeAuswahl;
 
       loadItems();
@@ -383,7 +411,7 @@
 
       listEl.innerHTML = orderedIds.map((id, index) => `
         <li>
-          <span class="item-name">${departmentsById[id]}</span>
+          <span class="item-name">${escapeHtml(departmentsById[id])}</span>
           <div class="edit-actions">
             <button ${index === 0 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, -1)">▲</button>
             <button ${index === orderedIds.length - 1 ? 'disabled' : ''} onclick="moveDepartmentOrder('${storeId}', ${index}, 1)">▼</button>
@@ -429,7 +457,7 @@
       }
       return `
         <li>
-          <span class="item-name clickable" onclick="startEditDepartment('${dep.id}')">${dep.name}</span>
+          <span class="item-name clickable" onclick="startEditDepartment('${dep.id}')">${escapeHtml(dep.name)}</span>
           <button onclick="deleteDepartment('${dep.id}')">löschen</button>
         </li>
       `;
@@ -516,8 +544,8 @@
       return `
         <li>
           <span class="item-name clickable" onclick="startEditStore('${store.id}')">
-            ${store.name}
-            ${store.address ? `<br><small class="store-address">${store.address}</small>` : ''}
+            ${escapeHtml(store.name)}
+            ${store.address ? `<br><small class="store-address">${escapeHtml(store.address)}</small>` : ''}
           </span>
           <button onclick="deleteStore('${store.id}')">löschen</button>
         </li>
@@ -760,14 +788,28 @@
       loadStores();
       loadDepartments();
       loadHousehold();
-      await resetDueRecurringChores();
       loadChores();
       loadPlants();
+      subscribeToAllChanges();
+      setChoreView(choreViewFilter);
+    }
+
+    // showApp() läuft bei jedem Auth-Event erneut (auch beim stündlichen
+    // Token-Refresh). Ohne diese Sperre würde dabei jedes Mal ein weiterer
+    // Satz Realtime-Kanäle angelegt – nach ein paar Stunden offener App also
+    // vielfach dieselben Änderungs-Events und entsprechend viele überflüssige
+    // Reloads. Beim Haushaltswechsel werden die alten Kanäle verworfen.
+    let subscribedHouseholdId = null;
+
+    function subscribeToAllChanges() {
+      if (subscribedHouseholdId === currentHouseholdId) return;
+      if (subscribedHouseholdId !== null) client.removeAllChannels();
+      subscribedHouseholdId = currentHouseholdId;
+
       subscribeToChanges();
       subscribeToChoreChanges();
       subscribeToPlantChanges();
       subscribeToCareTaskChanges();
-      setChoreView(choreViewFilter);
     }
 
     function showOnboarding() {
@@ -993,7 +1035,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     function einheitOptions(selected) {
@@ -1005,7 +1047,7 @@
     function storeOptions(selectedId) {
       const leer = `<option value="">– kein Laden –</option>`;
       const optionen = Object.entries(storesById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
+        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(name)}</option>`
       ).join('');
       return leer + optionen;
     }
@@ -1013,7 +1055,7 @@
     function departmentOptions(selectedId) {
       const leer = `<option value="">– keine Abteilung –</option>`;
       const optionen = Object.entries(departmentsById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${name}</option>`
+        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(name)}</option>`
       ).join('');
       return leer + optionen;
     }
@@ -1082,7 +1124,7 @@
           <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
                  onchange="toggleStatus('${item.id}', this.checked)">
           <span class="${nameClass}"${nameClick}>
-            ${item.name}
+            ${escapeHtml(item.name)}
             ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
             ${creatorName ? `<br><small class="store-address">hinzugefügt von ${escapeHtml(creatorName)}</small>` : ''}
           </span>
@@ -1113,7 +1155,7 @@
       if (gruppen[ohneAbteilung]) depNamen.push(ohneAbteilung);
 
       return depNamen.map(depName => `
-        <h4>${depName}</h4>
+        <h4>${escapeHtml(depName)}</h4>
         <ul>${gruppen[depName].map(renderItem).join('')}</ul>
       `).join('');
     }
@@ -1139,7 +1181,7 @@
       });
 
       return keys.map(key => `
-        <h3>${gruppen[key].name}</h3>
+        <h3>${escapeHtml(gruppen[key].name)}</h3>
         ${renderGroupedByDepartment(gruppen[key].items, key === 'none' ? null : key)}
       `).join('');
     }
@@ -1432,70 +1474,21 @@
       return `Alle ${value} ${RECURRENCE_UNIT_LABELS_PLURAL[unit] || unit}`;
     }
 
-    // Monats-/Jahres-Arithmetik so, dass sie zu Postgres' date + interval passt:
-    // z.B. 31. Januar + 1 Monat -> 28. Februar (nicht 3. März). Ohne dieses
-    // Clamping würde JS' Date.setMonth() über den Monat hinaus in den
-    // nächsten rutschen, während der Server (pg_cron) korrekt kappt – dann
-    // liefen Client- und Server-Berechnung bei Monats-/Jahresfälligkeiten
-    // auseinander.
-    function addMonthsClamped(date, months) {
-      const d = new Date(date);
-      const origDay = d.getDate();
-      d.setDate(1);
-      d.setMonth(d.getMonth() + months);
-      const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-      d.setDate(Math.min(origDay, daysInTargetMonth));
-      return d;
-    }
-
-    function addYearsClamped(date, years) {
-      const d = new Date(date);
-      const origMonth = d.getMonth();
-      const origDay = d.getDate();
-      d.setDate(1);
-      d.setFullYear(d.getFullYear() + years);
-      d.setMonth(origMonth);
-      const daysInTargetMonth = new Date(d.getFullYear(), origMonth + 1, 0).getDate();
-      d.setDate(Math.min(origDay, daysInTargetMonth));
-      return d;
-    }
-
-    function computeNextDueDate(dueDateStr, value, unit) {
-      if (!value || !unit) return null;
-      const base = dueDateStr ? new Date(dueDateStr + 'T00:00:00') : new Date();
-      let next;
-      if (unit === 'tag') { next = new Date(base); next.setDate(next.getDate() + value); }
-      else if (unit === 'woche') { next = new Date(base); next.setDate(next.getDate() + value * 7); }
-      else if (unit === 'monat') next = addMonthsClamped(base, value);
-      else if (unit === 'jahr') next = addYearsClamped(base, value);
-      else return null;
-      return next.toISOString().slice(0, 10);
-    }
-
-    async function resetDueRecurringChores() {
-      const { data, error } = await client
-        .from('chores')
-        .select('*')
-        .eq('status', 'erledigt')
-        .not('recurrence_interval_value', 'is', null);
-
-      if (error) {
-        console.error("Fehler beim Prüfen wiederkehrender Aufgaben:", error);
-        return;
-      }
-      if (!data || data.length === 0) return;
-
-      for (const chore of data) {
-        const nextDue = computeNextDueDate(chore.due_date, chore.recurrence_interval_value, chore.recurrence_interval_unit);
-        await client
-          .from('chores')
-          .update({ status: 'offen', due_date: nextDue })
-          .eq('id', chore.id);
-      }
-    }
-
+    // Die Wiederholungs-Arithmetik lebt bewusst nur noch serverseitig
+    // (next_due_after_today + der naechtliche Cron-Job). Vorher rechnete der
+    // Client dasselbe parallel nach und lief dabei auseinander -- Zeitzonen-
+    // Umrechnung und Ueberfaelligkeit waren in beiden Varianten unterschiedlich
+    // falsch. Eine Implementierung, eine Wahrheit.
     function formatDueDate(dateStr) {
       const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    // Für Zeitstempel aus der Datenbank (UTC): in lokale Zeit umrechnen, sonst
+    // zeigt eine spätabends erledigte Aufgabe den Vortag an.
+    function formatTimestampDate(ts) {
+      const d = new Date(ts);
+      if (isNaN(d)) return null;
       return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
@@ -1603,9 +1596,11 @@
       if (recurrenceLabel) metaParts.push(recurrenceLabel);
 
       const completedName = chore.completed_by ? (membersById[chore.completed_by] || 'Unbekannt') : null;
+      const completedDate = chore.completed_at ? formatTimestampDate(chore.completed_at) : null;
+      const titel = escapeHtml(chore.title);
       const titleLine = chore.status === 'erledigt'
-        ? `${chore.title} – erledigt${chore.completed_at ? ' am ' + formatDueDate(chore.completed_at.slice(0, 10)) : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
-        : `${chore.title}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
+        ? `${titel} – erledigt${completedDate ? ' am ' + completedDate : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
+        : `${titel}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -2037,13 +2032,20 @@
       if (assignedName) metaParts.push(`Zugewiesen: ${escapeHtml(assignedName)}`);
       if (recurrenceLabel) metaParts.push(recurrenceLabel);
 
+      // Wie bei den Aufgaben: erledigte Pflege zeigt Zeitpunkt und Person
+      // statt des Faelligkeitsdatums.
+      const completedName = task.completed_by ? (membersById[task.completed_by] || 'Unbekannt') : null;
+      const completedDate = task.completed_at ? formatTimestampDate(task.completed_at) : null;
+      const statusLine = task.status === 'erledigt'
+        ? ` – erledigt${completedDate ? ' am ' + completedDate : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
+        : (task.due_date ? ` – fällig ${formatDueDate(task.due_date)}${urgencyLabel}` : '');
+
       return `
         <div class="care-task ${urgencyClass}" style="${task.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${task.status === 'erledigt' ? 'checked' : ''}
                  onchange="toggleCareTaskStatus('${task.id}', this.checked)">
           <span class="item-name clickable" onclick="startEditCareTask('${task.id}')">
-            ${label}
-            ${task.due_date ? ` – fällig ${formatDueDate(task.due_date)}${urgencyLabel}` : ''}
+            ${label}${statusLine}
             ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
           </span>
           <button onclick="deleteCareTask('${task.id}')">entfernen</button>
