@@ -123,6 +123,11 @@
       <p id="welcome"></p>
       <button onclick="logout()">Logout</button>
 
+      <h2>Profil</h2>
+      <input type="text" id="display-name-input" placeholder="Dein Anzeigename (z.B. Max)" maxlength="60">
+      <button onclick="saveDisplayName()">Speichern</button>
+      <p id="display-name-status"></p>
+
       <h2>Haushalt</h2>
       <p>
         <span id="household-name-display" class="item-name clickable" onclick="startEditHousehold()"></span>
@@ -556,12 +561,13 @@
       document.getElementById('login-view').style.display = 'none';
       document.getElementById('onboarding-view').style.display = 'none';
       document.getElementById('app-view').style.display = 'block';
-      document.getElementById('welcome').textContent = "Eingeloggt als " + session.user.email;
       showTab(localStorage.getItem('nest_active_tab') || 'liste');
+      // Mitglieder zuerst laden, damit Namen (statt nur E-Mails) schon beim
+      // ersten Rendern von Einkaufsliste und Aufgaben verfügbar sind.
+      await loadHouseholdMembers();
       loadStores();
       loadDepartments();
       loadHousehold();
-      await loadHouseholdMembers();
       await resetDueRecurringChores();
       loadChores();
       subscribeToChanges();
@@ -840,6 +846,7 @@
       const editable = item.status === 'offen';
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
+      const creatorName = item.created_by ? (membersById[item.created_by] || null) : null;
 
       return `
         <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -848,6 +855,7 @@
           <span class="${nameClass}"${nameClick}>
             ${item.name}
             ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
+            ${creatorName ? `<br><small class="store-address">hinzugefügt von ${escapeHtml(creatorName)}</small>` : ''}
           </span>
           <button onclick="deleteItem('${item.id}')">löschen</button>
         </li>
@@ -940,20 +948,61 @@
 
       householdMembers = data;
       membersById = {};
-      data.forEach(m => { membersById[m.user_id] = m.email; });
+      data.forEach(m => { membersById[m.user_id] = memberLabel(m); });
 
       const selectEl = document.getElementById('chore-assigned-to');
       const bisherigeAuswahl = selectEl.value;
       selectEl.innerHTML = memberOptions(null);
       selectEl.value = bisherigeAuswahl;
+
+      updateOwnProfileUI();
+    }
+
+    function memberLabel(m) {
+      return (m.display_name && m.display_name.trim()) ? m.display_name : m.email;
     }
 
     function memberOptions(selectedId) {
       const leer = `<option value="">– niemand zugewiesen –</option>`;
       const optionen = householdMembers.map(m =>
-        `<option value="${m.user_id}" ${m.user_id === selectedId ? 'selected' : ''}>${m.email}</option>`
+        `<option value="${m.user_id}" ${m.user_id === selectedId ? 'selected' : ''}>${escapeHtml(memberLabel(m))}</option>`
       ).join('');
       return leer + optionen;
+    }
+
+    function updateOwnProfileUI() {
+      if (!currentSession) return;
+      const own = householdMembers.find(m => m.user_id === currentSession.user.id);
+      const label = own ? memberLabel(own) : currentSession.user.email;
+      document.getElementById('welcome').textContent = "Eingeloggt als " + label;
+
+      const input = document.getElementById('display-name-input');
+      if (input && document.activeElement !== input) {
+        input.value = (own && own.display_name) ? own.display_name : '';
+      }
+    }
+
+    async function saveDisplayName() {
+      const input = document.getElementById('display-name-input');
+      const statusEl = document.getElementById('display-name-status');
+      const name = input.value.trim();
+
+      if (name.length > 60) {
+        statusEl.textContent = "Der Name darf höchstens 60 Zeichen lang sein.";
+        return;
+      }
+
+      const { data: { user } } = await client.auth.getUser();
+      const { error } = await client
+        .from('profiles')
+        .upsert({ id: user.id, display_name: name || null, updated_at: new Date().toISOString() });
+
+      if (error) {
+        statusEl.textContent = "Fehler: " + error.message;
+        return;
+      }
+      statusEl.textContent = "Gespeichert!";
+      await loadHouseholdMembers();
     }
 
     const RECURRENCE_UNIT_LABELS = {
@@ -1125,11 +1174,17 @@
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
       const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
+      const creatorName = chore.created_by ? (membersById[chore.created_by] || null) : null;
       const recurrenceLabel = formatRecurrence(chore.recurrence_interval_value, chore.recurrence_interval_unit);
 
       const urgency = chore.status === 'offen' ? getDueUrgency(chore.due_date) : null;
       const urgencyClass = urgency === 'overdue' ? 'chore-overdue' : (urgency === 'today' ? 'chore-due-today' : '');
       const urgencyLabel = urgency === 'overdue' ? ' (überfällig)' : (urgency === 'today' ? ' (heute fällig)' : '');
+
+      const metaParts = [];
+      if (assignedName) metaParts.push(`Zugewiesen: ${escapeHtml(assignedName)}`);
+      if (creatorName) metaParts.push(`Erstellt von ${escapeHtml(creatorName)}`);
+      if (recurrenceLabel) metaParts.push(recurrenceLabel);
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -1138,7 +1193,7 @@
           <span class="${nameClass}"${nameClick}>
             ${chore.title}
             ${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}
-            ${assignedName || recurrenceLabel ? `<br><small class="store-address">${[assignedName, recurrenceLabel].filter(Boolean).join(' · ')}</small>` : ''}
+            ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
           </span>
           <button onclick="deleteChore('${chore.id}')">löschen</button>
         </li>
