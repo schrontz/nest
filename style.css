@@ -58,6 +58,21 @@ input[type="checkbox"] {
   margin-right: 0.5rem;
 }
 
+.recurrence-fields {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.recurrence-fields input {
+  flex: 1;
+  min-width: 0;
+}
+
+.recurrence-fields select {
+  flex: 1;
+  min-width: 0;
+}
+
 button {
   font-size: 1rem;
   padding: 0.6rem 1.1rem;

@@ -90,14 +90,15 @@
           <select id="chore-assigned-to">
             <option value="">– niemand zugewiesen –</option>
           </select>
-          <select id="chore-recurrence" onchange="document.getElementById('chore-recurrence-days').style.display = this.value === 'custom' ? 'block' : 'none'">
-            <option value="keine">Keine Wiederholung</option>
-            <option value="woechentlich">Wöchentlich</option>
-            <option value="zweiwoechentlich">Alle 2 Wochen</option>
-            <option value="monatlich">Monatlich</option>
-            <option value="custom">Benutzerdefiniert</option>
-          </select>
-          <input type="number" id="chore-recurrence-days" placeholder="Alle X Tage" min="1" style="display:none;">
+          <div class="recurrence-fields">
+            <input type="number" id="chore-recurrence-value" placeholder="Wiederholt sich alle …" min="1">
+            <select id="chore-recurrence-unit">
+              <option value="tag">Tag(e)</option>
+              <option value="woche" selected>Woche(n)</option>
+              <option value="monat">Monat(e)</option>
+              <option value="jahr">Jahr(e)</option>
+            </select>
+          </div>
           <button onclick="addChore()">Hinzufügen</button>
           <p id="chore-add-status"></p>
         </div>
@@ -955,27 +956,64 @@
       return leer + optionen;
     }
 
-    const RECURRENCE_LABELS = {
-      keine: 'Keine Wiederholung',
-      woechentlich: 'Wöchentlich',
-      zweiwoechentlich: 'Alle 2 Wochen',
-      monatlich: 'Monatlich',
-      custom: 'Benutzerdefiniert'
+    const RECURRENCE_UNIT_LABELS = {
+      tag: 'Tag(e)', woche: 'Woche(n)', monat: 'Monat(e)', jahr: 'Jahr(e)'
+    };
+    const RECURRENCE_UNIT_LABELS_PLURAL = {
+      tag: 'Tage', woche: 'Wochen', monat: 'Monate', jahr: 'Jahre'
+    };
+    const RECURRENCE_UNIT_LABELS_SINGULAR = {
+      tag: 'Täglich', woche: 'Wöchentlich', monat: 'Monatlich', jahr: 'Jährlich'
     };
 
-    function recurrenceOptions(selected) {
-      return Object.entries(RECURRENCE_LABELS).map(([val, label]) =>
+    function recurrenceUnitOptions(selected) {
+      return Object.entries(RECURRENCE_UNIT_LABELS).map(([val, label]) =>
         `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
       ).join('');
     }
 
-    function computeNextDueDate(dueDateStr, recurrenceType, intervalDays) {
+    function formatRecurrence(value, unit) {
+      if (!value || !unit) return null;
+      if (value === 1) return RECURRENCE_UNIT_LABELS_SINGULAR[unit] || null;
+      return `Alle ${value} ${RECURRENCE_UNIT_LABELS_PLURAL[unit] || unit}`;
+    }
+
+    // Monats-/Jahres-Arithmetik so, dass sie zu Postgres' date + interval passt:
+    // z.B. 31. Januar + 1 Monat -> 28. Februar (nicht 3. März). Ohne dieses
+    // Clamping würde JS' Date.setMonth() über den Monat hinaus in den
+    // nächsten rutschen, während der Server (pg_cron) korrekt kappt – dann
+    // liefen Client- und Server-Berechnung bei Monats-/Jahresfälligkeiten
+    // auseinander.
+    function addMonthsClamped(date, months) {
+      const d = new Date(date);
+      const origDay = d.getDate();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + months);
+      const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(origDay, daysInTargetMonth));
+      return d;
+    }
+
+    function addYearsClamped(date, years) {
+      const d = new Date(date);
+      const origMonth = d.getMonth();
+      const origDay = d.getDate();
+      d.setDate(1);
+      d.setFullYear(d.getFullYear() + years);
+      d.setMonth(origMonth);
+      const daysInTargetMonth = new Date(d.getFullYear(), origMonth + 1, 0).getDate();
+      d.setDate(Math.min(origDay, daysInTargetMonth));
+      return d;
+    }
+
+    function computeNextDueDate(dueDateStr, value, unit) {
+      if (!value || !unit) return null;
       const base = dueDateStr ? new Date(dueDateStr + 'T00:00:00') : new Date();
-      const next = new Date(base);
-      if (recurrenceType === 'woechentlich') next.setDate(next.getDate() + 7);
-      else if (recurrenceType === 'zweiwoechentlich') next.setDate(next.getDate() + 14);
-      else if (recurrenceType === 'monatlich') next.setMonth(next.getMonth() + 1);
-      else if (recurrenceType === 'custom') next.setDate(next.getDate() + (intervalDays || 1));
+      let next;
+      if (unit === 'tag') { next = new Date(base); next.setDate(next.getDate() + value); }
+      else if (unit === 'woche') { next = new Date(base); next.setDate(next.getDate() + value * 7); }
+      else if (unit === 'monat') next = addMonthsClamped(base, value);
+      else if (unit === 'jahr') next = addYearsClamped(base, value);
       else return null;
       return next.toISOString().slice(0, 10);
     }
@@ -985,7 +1023,7 @@
         .from('chores')
         .select('*')
         .eq('status', 'erledigt')
-        .neq('recurrence_type', 'keine');
+        .not('recurrence_interval_value', 'is', null);
 
       if (error) {
         console.error("Fehler beim Prüfen wiederkehrender Aufgaben:", error);
@@ -994,7 +1032,7 @@
       if (!data || data.length === 0) return;
 
       for (const chore of data) {
-        const nextDue = computeNextDueDate(chore.due_date, chore.recurrence_type, chore.recurrence_interval_days);
+        const nextDue = computeNextDueDate(chore.due_date, chore.recurrence_interval_value, chore.recurrence_interval_unit);
         await client
           .from('chores')
           .update({ status: 'offen', due_date: nextDue })
@@ -1068,12 +1106,13 @@
             <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
             <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
             <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
-            <select id="edit-chore-recurrence-${chore.id}" onchange="document.getElementById('edit-chore-recurrence-days-${chore.id}').style.display = this.value === 'custom' ? 'block' : 'none'">
-              ${recurrenceOptions(chore.recurrence_type)}
-            </select>
-            <input type="number" id="edit-chore-recurrence-days-${chore.id}" placeholder="Alle X Tage" min="1"
-                   value="${chore.recurrence_interval_days || ''}"
-                   style="display:${chore.recurrence_type === 'custom' ? 'block' : 'none'};">
+            <div class="recurrence-fields">
+              <input type="number" id="edit-chore-recurrence-value-${chore.id}" placeholder="Wiederholt sich alle …" min="1"
+                     value="${chore.recurrence_interval_value || ''}">
+              <select id="edit-chore-recurrence-unit-${chore.id}">
+                ${recurrenceUnitOptions(chore.recurrence_interval_unit || 'woche')}
+              </select>
+            </div>
             <div class="edit-actions">
               <button onclick="saveEditChore('${chore.id}')">Speichern</button>
               <button onclick="cancelEditChore()">Abbrechen</button>
@@ -1086,11 +1125,7 @@
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEditChore('${chore.id}')"` : '';
       const assignedName = chore.assigned_to ? (membersById[chore.assigned_to] || 'Unbekannt') : null;
-      const recurrenceLabel = chore.recurrence_type && chore.recurrence_type !== 'keine'
-        ? (chore.recurrence_type === 'custom'
-            ? `Alle ${chore.recurrence_interval_days} Tage`
-            : RECURRENCE_LABELS[chore.recurrence_type])
-        : null;
+      const recurrenceLabel = formatRecurrence(chore.recurrence_interval_value, chore.recurrence_interval_unit);
 
       const urgency = chore.status === 'offen' ? getDueUrgency(chore.due_date) : null;
       const urgencyClass = urgency === 'overdue' ? 'chore-overdue' : (urgency === 'today' ? 'chore-due-today' : '');
@@ -1124,8 +1159,10 @@
       const title = document.getElementById('edit-chore-title-' + id).value.trim();
       const dueDate = document.getElementById('edit-chore-due-' + id).value;
       const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
-      const recurrenceType = document.getElementById('edit-chore-recurrence-' + id).value;
-      const recurrenceDays = document.getElementById('edit-chore-recurrence-days-' + id).value;
+      const recurrenceValueRaw = document.getElementById('edit-chore-recurrence-value-' + id).value;
+      const recurrenceUnitEl = document.getElementById('edit-chore-recurrence-unit-' + id);
+      const recurrenceValue = recurrenceValueRaw ? parseInt(recurrenceValueRaw) : null;
+      const recurrenceUnit = recurrenceValue ? recurrenceUnitEl.value : null;
 
       if (!title) return;
 
@@ -1135,8 +1172,8 @@
           title: title,
           due_date: dueDate || null,
           assigned_to: assignedTo || null,
-          recurrence_type: recurrenceType,
-          recurrence_interval_days: recurrenceType === 'custom' ? (parseInt(recurrenceDays) || 1) : null
+          recurrence_interval_value: recurrenceValue,
+          recurrence_interval_unit: recurrenceUnit
         })
         .eq('id', id);
 
@@ -1162,8 +1199,8 @@
       const titleEl = document.getElementById('chore-title');
       const dueEl = document.getElementById('chore-due-date');
       const assignedEl = document.getElementById('chore-assigned-to');
-      const recurrenceEl = document.getElementById('chore-recurrence');
-      const recurrenceDaysEl = document.getElementById('chore-recurrence-days');
+      const recurrenceValueEl = document.getElementById('chore-recurrence-value');
+      const recurrenceUnitEl = document.getElementById('chore-recurrence-unit');
       const statusEl = document.getElementById('chore-add-status');
       const title = titleEl.value.trim();
 
@@ -1173,15 +1210,16 @@
       }
 
       const { data: { user } } = await client.auth.getUser();
-      const recurrenceType = recurrenceEl.value;
+      const recurrenceValue = recurrenceValueEl.value ? parseInt(recurrenceValueEl.value) : null;
+      const recurrenceUnit = recurrenceValue ? recurrenceUnitEl.value : null;
 
       const { error } = await client.from('chores').insert({
         household_id: currentHouseholdId,
         title: title,
         due_date: dueEl.value || null,
         assigned_to: assignedEl.value || null,
-        recurrence_type: recurrenceType,
-        recurrence_interval_days: recurrenceType === 'custom' ? (parseInt(recurrenceDaysEl.value) || 1) : null,
+        recurrence_interval_value: recurrenceValue,
+        recurrence_interval_unit: recurrenceUnit,
         created_by: user.id
       });
 
@@ -1191,9 +1229,8 @@
         statusEl.textContent = "\"" + title + "\" hinzugefügt!";
         titleEl.value = "";
         dueEl.value = "";
-        recurrenceEl.value = "keine";
-        recurrenceDaysEl.value = "";
-        recurrenceDaysEl.style.display = "none";
+        recurrenceValueEl.value = "";
+        recurrenceUnitEl.value = "woche";
       }
     }
 
