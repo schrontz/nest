@@ -21,7 +21,11 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: 'icon-192.png',
-    badge: 'icon-192.png',
+    // Eigenes, einfarbiges Icon mit echter Transparenz für die Statusleiste:
+    // Android baut daraus eine Silhouette (nur der Alpha-Kanal zählt), das
+    // normale bunte App-Icon dafür sieht dort meist wie ein schwarzer
+    // Klecks aus.
+    badge: 'icon-badge-96.png',
     data: { url: data.url || './' }
   };
 
