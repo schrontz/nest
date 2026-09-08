@@ -802,23 +802,37 @@
       return leer + optionen;
     }
 
+    // Die Tabs stehen bewusst nur an dieser einen Stelle. Vorher zählte jede
+    // Funktion sie einzeln auf – beim Hinzufügen der Pflanzen wurde
+    // showSettings() dabei übersehen, sodass der Pflanzenbereich unter den
+    // Einstellungen sichtbar blieb.
+    const TAB_IDS = ['liste', 'aufgaben', 'pflanzen'];
+
     let lastActiveTab = 'liste';
 
+    function hideAllTabs() {
+      TAB_IDS.forEach(id => {
+        document.getElementById('tab-' + id).style.display = 'none';
+      });
+    }
+
     function showTab(tab) {
+      // Gegen einen veralteten Wert aus dem localStorage, der sonst zu einer
+      // leeren Ansicht führen würde.
+      if (!TAB_IDS.includes(tab)) tab = TAB_IDS[0];
+
       lastActiveTab = tab;
       localStorage.setItem('nest_active_tab', tab);
-      document.getElementById('tab-liste').style.display = tab === 'liste' ? 'block' : 'none';
-      document.getElementById('tab-aufgaben').style.display = tab === 'aufgaben' ? 'block' : 'none';
-      document.getElementById('tab-pflanzen').style.display = tab === 'pflanzen' ? 'block' : 'none';
+
+      TAB_IDS.forEach(id => {
+        document.getElementById('tab-' + id).style.display = (id === tab) ? 'block' : 'none';
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tab);
+      });
       document.getElementById('tab-einstellungen').style.display = 'none';
-      document.getElementById('tab-btn-liste').classList.toggle('active', tab === 'liste');
-      document.getElementById('tab-btn-aufgaben').classList.toggle('active', tab === 'aufgaben');
-      document.getElementById('tab-btn-pflanzen').classList.toggle('active', tab === 'pflanzen');
     }
 
     function showSettings() {
-      document.getElementById('tab-liste').style.display = 'none';
-      document.getElementById('tab-aufgaben').style.display = 'none';
+      hideAllTabs();
       document.getElementById('tab-einstellungen').style.display = 'block';
       checkPushStatus();
       loadNotificationSettings();
