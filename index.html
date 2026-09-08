@@ -137,7 +137,10 @@
         <button onclick="saveHouseholdName()">Speichern</button>
         <button onclick="cancelEditHousehold()">Abbrechen</button>
       </div>
-      <p>Beitritts-Code zum Einladen: <strong id="household-join-code"></strong></p>
+      <p>
+        Beitritts-Code zum Einladen: <strong id="household-join-code"></strong>
+        <button onclick="regenerateJoinCode()">Neu generieren</button>
+      </p>
 
       <h3>Mitglieder</h3>
       <ul id="household-member-list"></ul>
@@ -697,6 +700,20 @@
 
     function cancelEditHousehold() {
       document.getElementById('household-edit-form').style.display = 'none';
+    }
+
+    async function regenerateJoinCode() {
+      if (!confirm("Neuen Beitritts-Code erzeugen? Der alte Code funktioniert danach nicht mehr.")) {
+        return;
+      }
+
+      const { error } = await client.rpc('regenerate_join_code', { target_household_id: currentHouseholdId });
+
+      if (error) {
+        alert("Fehler: " + error.message);
+        return;
+      }
+      loadHousehold();
     }
 
     async function saveHouseholdName() {
