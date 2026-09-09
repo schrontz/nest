@@ -46,11 +46,18 @@
 
       // Immer die nächste anstehende zuerst; erledigte wandern (zuletzt
       // erledigt zuerst) ans Ende der Liste statt komplett zu verschwinden.
+      //
+      // Das Datum schlägt dabei bewusst die Priorität: eine "dringende"
+      // Aufgabe in drei Wochen soll nicht über dem Müll stehen, der morgen
+      // rausmuss. Die Priorität entscheidet bei gleichem Termin -- und bei
+      // Aufgaben ganz ohne Termin, wo es sonst keine Ordnung gäbe.
       const offen = sichtbar.filter(c => c.status === 'offen').sort((a, b) => {
-        if (!a.due_date && !b.due_date) return 0;
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return a.due_date.localeCompare(b.due_date);
+        if (a.due_date && b.due_date && a.due_date !== b.due_date) {
+          return a.due_date.localeCompare(b.due_date);
+        }
+        if (!a.due_date && b.due_date) return 1;
+        if (a.due_date && !b.due_date) return -1;
+        return prioritaetRang(b.priority) - prioritaetRang(a.priority);
       });
       const erledigt = sichtbar.filter(c => c.status === 'erledigt').sort((a, b) =>
         (b.completed_at || '').localeCompare(a.completed_at || '')
@@ -69,6 +76,7 @@
           <li class="editing">
             <input type="text" id="edit-chore-title-${chore.id}" value="${escapeHtml(chore.title)}">
             <input type="date" id="edit-chore-due-${chore.id}" value="${chore.due_date || ''}">
+            <select id="edit-chore-priority-${chore.id}">${prioritaetOptions(chore.priority)}</select>
             <select id="edit-chore-assigned-${chore.id}">${memberOptions(chore.assigned_to)}</select>
             <select id="edit-chore-room-${chore.id}">${roomOptions(chore.room_id)}</select>
             <div class="recurrence-fields">
@@ -107,9 +115,12 @@
       const completedName = chore.completed_by ? (membersById[chore.completed_by] || 'Unbekannt') : null;
       const completedDate = chore.completed_at ? formatTimestampDate(chore.completed_at) : null;
       const titel = escapeHtml(chore.title);
+      // Markierung nur bei offenen Aufgaben -- an einer erledigten sagt sie
+      // nichts mehr aus.
+      const chip = chore.status === 'offen' ? prioritaetChip(chore.priority) : '';
       const titleLine = chore.status === 'erledigt'
         ? `${titel} – erledigt${completedDate ? ' am ' + completedDate : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
-        : `${titel}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
+        : `${chip}${titel}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -139,6 +150,7 @@
       const dueDate = document.getElementById('edit-chore-due-' + id).value;
       const assignedTo = document.getElementById('edit-chore-assigned-' + id).value;
       const roomId = document.getElementById('edit-chore-room-' + id).value;
+      const priority = document.getElementById('edit-chore-priority-' + id).value;
       const recurrenceValueRaw = document.getElementById('edit-chore-recurrence-value-' + id).value;
       const recurrenceUnitEl = document.getElementById('edit-chore-recurrence-unit-' + id);
       const recurrenceValue = recurrenceValueRaw ? parseInt(recurrenceValueRaw) : null;
@@ -153,6 +165,7 @@
           due_date: dueDate || null,
           assigned_to: assignedTo || null,
           room_id: roomId || null,
+          priority: priority,
           recurrence_interval_value: recurrenceValue,
           recurrence_interval_unit: recurrenceUnit
         })
@@ -186,6 +199,7 @@
       const dueEl = document.getElementById('chore-due-date');
       const assignedEl = document.getElementById('chore-assigned-to');
       const roomEl = document.getElementById('chore-room');
+      const priorityEl = document.getElementById('chore-priority');
       const recurrenceValueEl = document.getElementById('chore-recurrence-value');
       const recurrenceUnitEl = document.getElementById('chore-recurrence-unit');
       const statusEl = document.getElementById('chore-add-status');
@@ -206,6 +220,7 @@
         due_date: dueEl.value || null,
         assigned_to: assignedEl.value || null,
         room_id: roomEl.value || null,
+        priority: priorityEl.value,
         recurrence_interval_value: recurrenceValue,
         recurrence_interval_unit: recurrenceUnit,
         created_by: user.id
@@ -218,6 +233,7 @@
         titleEl.value = "";
         dueEl.value = "";
         roomEl.value = "";
+        priorityEl.value = "normal";
         recurrenceValueEl.value = "";
         recurrenceUnitEl.value = "woche";
       }
