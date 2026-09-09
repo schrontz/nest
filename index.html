@@ -78,6 +78,11 @@
           <select id="item-department">
             <option value="">– keine Abteilung –</option>
           </select>
+          <select id="item-priority">
+            <option value="normal" selected>Normal</option>
+            <option value="wichtig">Wichtig</option>
+            <option value="dringend">Dringend</option>
+          </select>
           <button onclick="addItem()">Hinzufügen</button>
           <p id="add-status"></p>
         </div>
@@ -98,6 +103,11 @@
         <div id="chore-add-form" style="display:none;">
           <input type="text" id="chore-title" placeholder="Titel (z.B. Müll rausbringen)">
           <input type="date" id="chore-due-date">
+          <select id="chore-priority">
+            <option value="normal" selected>Normal</option>
+            <option value="wichtig">Wichtig</option>
+            <option value="dringend">Dringend</option>
+          </select>
           <select id="chore-assigned-to">
             <option value="">– niemand zugewiesen –</option>
           </select>

@@ -599,3 +599,39 @@ input[type="file"]::file-selector-button:hover {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Priorität: kleine Markierung vor dem Namen. Bewusst ein eigener Kanal --
+   der linke Rand ist schon für überfällig/heute fällig vergeben, sonst
+   würden sich zwei Aussagen um dieselbe Stelle streiten. */
+.prio-chip {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  margin-right: 0.4rem;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+}
+
+.prio-dringend {
+  background: #fbe3e0;
+  color: #a3311f;
+}
+
+.prio-wichtig {
+  background: #fdf0d8;
+  color: #8a5a12;
+}
+
+/* Auf der Einkaufsliste zusätzlich ein leiser Farbton auf der ganzen Zeile:
+   im Laden schaut man selten genau hin. */
+.prio-zeile-dringend {
+  background: #fdf4f2;
+}
+
+.prio-zeile-wichtig {
+  background: #fefaf2;
+}
