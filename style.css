@@ -414,6 +414,64 @@ li.plant-card {
   display: block;
 }
 
+.plant-kopf {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.plant-bild {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--color-bg);
+}
+
+.plant-notiz {
+  white-space: pre-wrap;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  background: var(--color-bg);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  margin: 0.6rem 0 0;
+}
+
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d3ddd8;
+  border-radius: 8px;
+  background: var(--color-surface);
+  margin-bottom: 0.5rem;
+  width: 100%;
+  resize: vertical;
+}
+
+.feld-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin-bottom: 0.2rem;
+}
+
+input[type="file"] {
+  font-size: 0.9rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.bild-vorschau {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
 li.plant-card > p {
   margin: 0.3rem 0 0;
 }

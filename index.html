@@ -134,6 +134,10 @@
           <select id="plant-room">
             <option value="">– kein Zimmer –</option>
           </select>
+          <textarea id="plant-notes" rows="3" placeholder="Pflegehinweise (optional)"></textarea>
+          <label class="feld-label" for="plant-image">Foto (optional)</label>
+          <input type="file" id="plant-image" accept="image/*" onchange="zeigeBildVorschau(this, 'plant-image-preview')">
+          <img id="plant-image-preview" class="bild-vorschau" style="display:none;" alt="">
           <button onclick="addPlant()">Hinzufügen</button>
           <p id="plant-add-status"></p>
         </div>
@@ -1857,6 +1861,87 @@
       }
     }
 
+    // ---- Bilder: einmal gebaut, später auch für Profilbild und Laden-Logo ----
+
+    const BILD_MAX_KANTE = 1200;
+    const BILD_QUALITAET = 0.82;
+
+    // Handyfotos kommen mit 3-5 MB an. Ungefiltert hochgeladen wäre nicht der
+    // Speicherplatz das Problem, sondern der Traffic bei jedem Anschauen --
+    // das Freikontingent liegt bei 10 GB im Monat. Verkleinert landen wir bei
+    // rund 200 KB pro Bild, also etwa einem Zwanzigstel.
+    function verkleinereBild(datei) {
+      return new Promise((resolve, reject) => {
+        const leser = new FileReader();
+        leser.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+        leser.onload = () => {
+          const bild = new Image();
+          bild.onerror = () => reject(new Error('Dieses Bildformat wird vom Browser nicht unterstützt.'));
+          bild.onload = () => {
+            const faktor = Math.min(1, BILD_MAX_KANTE / Math.max(bild.width, bild.height));
+            const breite = Math.max(1, Math.round(bild.width * faktor));
+            const hoehe = Math.max(1, Math.round(bild.height * faktor));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = breite;
+            canvas.height = hoehe;
+            const ctx = canvas.getContext('2d');
+            // Weisser Grund zuerst: sonst werden transparente Flächen (etwa in
+            // einem Logo-PNG) beim Umwandeln nach JPEG schwarz.
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, breite, hoehe);
+            ctx.drawImage(bild, 0, 0, breite, hoehe);
+
+            canvas.toBlob(
+              blob => blob ? resolve(blob) : reject(new Error('Bild konnte nicht umgewandelt werden.')),
+              'image/jpeg',
+              BILD_QUALITAET
+            );
+          };
+          bild.src = leser.result;
+        };
+        leser.readAsDataURL(datei);
+      });
+    }
+
+    function zufallsDateiname() {
+      // crypto.randomUUID gibt es nur in sicherem Kontext (https).
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'b' + Date.now() + Math.random().toString(16).slice(2);
+    }
+
+    async function ladeBildHoch(datei, ordner) {
+      const blob = await verkleinereBild(datei);
+      const pfad = ordner + '/' + zufallsDateiname() + '.jpg';
+
+      const { error } = await client.storage.from('bilder').upload(pfad, blob, {
+        contentType: 'image/jpeg',
+        // Ein Jahr Cache: Bilder ändern sich nie, ein neues Bild bekommt einen
+        // neuen Dateinamen. Genau das hält den Traffic klein.
+        cacheControl: '31536000'
+      });
+
+      if (error) throw new Error(error.message);
+      return pfad;
+    }
+
+    function bildUrl(pfad) {
+      if (!pfad) return null;
+      return client.storage.from('bilder').getPublicUrl(pfad).data.publicUrl;
+    }
+
+    async function loescheBild(pfad) {
+      if (!pfad) return;
+      // Nur bestmöglich: bleibt eine verwaiste Datei liegen, ist das
+      // ärgerlich, darf aber den eigentlichen Vorgang nicht scheitern lassen.
+      const { error } = await client.storage.from('bilder').remove([pfad]);
+      if (error) console.warn('Bild konnte nicht entfernt werden:', error.message);
+    }
+
+    function pflanzenBildOrdner() {
+      return 'households/' + currentHouseholdId + '/plants';
+    }
+
     const CARE_TYPE_LABELS = { giessen: 'Gießen', duengen: 'Düngen', umtopfen: 'Umtopfen' };
     const CARE_TYPES = ['giessen', 'duengen', 'umtopfen'];
 
@@ -1889,17 +1974,44 @@
       document.getElementById('toggle-plant-add-link').textContent = istOffen ? "+ Pflanze hinzufügen" : "– Formular schließen";
     }
 
+    function zeigeBildVorschau(inputEl, vorschauId) {
+      const vorschau = document.getElementById(vorschauId);
+      if (!vorschau) return;
+      const datei = inputEl.files && inputEl.files[0];
+      if (!datei) {
+        vorschau.style.display = 'none';
+        vorschau.removeAttribute('src');
+        return;
+      }
+      vorschau.src = URL.createObjectURL(datei);
+      vorschau.style.display = 'block';
+    }
+
     async function addPlant() {
       const nameEl = document.getElementById('plant-name');
       const speciesEl = document.getElementById('plant-species');
       const roomEl = document.getElementById('plant-room');
+      const notesEl = document.getElementById('plant-notes');
+      const bildEl = document.getElementById('plant-image');
       const statusEl = document.getElementById('plant-add-status');
       const name = nameEl.value.trim();
       const species = speciesEl.value.trim();
+      const notes = notesEl.value.trim();
 
       if (!name) {
         statusEl.textContent = "Bitte einen Namen eingeben.";
         return;
+      }
+
+      let imagePath = null;
+      if (bildEl.files && bildEl.files[0]) {
+        statusEl.textContent = "Foto wird verkleinert und hochgeladen …";
+        try {
+          imagePath = await ladeBildHoch(bildEl.files[0], pflanzenBildOrdner());
+        } catch (err) {
+          statusEl.textContent = "Foto konnte nicht hochgeladen werden: " + err.message;
+          return;
+        }
       }
 
       const { data: { user } } = await client.auth.getUser();
@@ -1908,17 +2020,24 @@
         household_id: currentHouseholdId,
         name: name,
         species: species || null,
+        notes: notes || null,
         room_id: roomEl.value || null,
+        image_path: imagePath,
         created_by: user.id
       });
 
       if (error) {
+        // Bild wieder wegräumen, sonst liegt es ohne zugehörige Pflanze herum.
+        await loescheBild(imagePath);
         statusEl.textContent = "Fehler: " + error.message;
       } else {
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         nameEl.value = "";
         speciesEl.value = "";
+        notesEl.value = "";
         roomEl.value = "";
+        bildEl.value = "";
+        zeigeBildVorschau(bildEl, 'plant-image-preview');
       }
     }
 
@@ -1935,18 +2054,52 @@
     async function saveEditPlant(id) {
       const name = document.getElementById('edit-plant-name-' + id).value.trim();
       const species = document.getElementById('edit-plant-species-' + id).value.trim();
+      const notes = document.getElementById('edit-plant-notes-' + id).value.trim();
       const roomId = document.getElementById('edit-plant-room-' + id).value;
       if (!name) return;
 
+      const plant = plantsById[id];
+      const bildEl = document.getElementById('edit-plant-image-' + id);
+      const entfernenEl = document.getElementById('edit-plant-image-remove-' + id);
+
+      let imagePath = plant ? plant.image_path : null;
+      // Das alte Bild erst löschen, wenn das Speichern geklappt hat.
+      let altesBild = null;
+
+      if (bildEl && bildEl.files && bildEl.files[0]) {
+        try {
+          imagePath = await ladeBildHoch(bildEl.files[0], pflanzenBildOrdner());
+          altesBild = plant ? plant.image_path : null;
+        } catch (err) {
+          alert("Foto konnte nicht hochgeladen werden: " + err.message);
+          return;
+        }
+      } else if (entfernenEl && entfernenEl.checked) {
+        altesBild = imagePath;
+        imagePath = null;
+      }
+
       const { error } = await client
         .from('plants')
-        .update({ name: name, species: species || null, room_id: roomId || null })
+        .update({
+          name: name,
+          species: species || null,
+          notes: notes || null,
+          room_id: roomId || null,
+          image_path: imagePath
+        })
         .eq('id', id);
 
       if (error) {
         console.error("Fehler beim Speichern:", error);
+        // Das gerade hochgeladene Bild wird sonst nie verwendet.
+        if (altesBild !== null && imagePath !== (plant ? plant.image_path : null)) {
+          await loescheBild(imagePath);
+        }
         return;
       }
+
+      await loescheBild(altesBild);
       editingPlantId = null;
     }
 
@@ -1957,7 +2110,12 @@
         return;
       }
       const { error } = await client.from('plants').delete().eq('id', id);
-      if (error) console.error("Fehler beim Löschen:", error);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      // Die Pflege-Erinnerungen räumt die Datenbank selbst ab, das Bild nicht.
+      await loescheBild(plant ? plant.image_path : null);
     }
 
     function renderPlantList() {
@@ -1975,6 +2133,13 @@
             <input type="text" id="edit-plant-name-${plant.id}" value="${escapeHtml(plant.name)}" placeholder="Name">
             <input type="text" id="edit-plant-species-${plant.id}" value="${escapeHtml(plant.species || '')}" placeholder="Art (optional)">
             <select id="edit-plant-room-${plant.id}">${roomOptions(plant.room_id)}</select>
+            <textarea id="edit-plant-notes-${plant.id}" rows="3" placeholder="Pflegehinweise (optional)">${escapeHtml(plant.notes || '')}</textarea>
+            ${plant.image_path ? `
+              <img class="bild-vorschau" src="${bildUrl(plant.image_path)}" alt="">
+              <p><label><input type="checkbox" id="edit-plant-image-remove-${plant.id}"> Foto entfernen</label></p>
+            ` : ''}
+            <label class="feld-label" for="edit-plant-image-${plant.id}">${plant.image_path ? 'Foto ersetzen' : 'Foto hinzufügen'}</label>
+            <input type="file" id="edit-plant-image-${plant.id}" accept="image/*">
             <div class="edit-actions">
               <button onclick="saveEditPlant('${plant.id}')">Speichern</button>
               <button onclick="cancelEditPlant()">Abbrechen</button>
@@ -1988,13 +2153,19 @@
       const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
       const tasksHtml = CARE_TYPES.map(type => renderCareTaskSlot(plant.id, type)).join('');
 
+      const bild = bildUrl(plant.image_path);
+
       return `
         <li class="plant-card">
-          <span class="item-name clickable" onclick="startEditPlant('${plant.id}')">
-            ${escapeHtml(plant.name)}
-            ${plant.species ? `<br><small class="store-address">${escapeHtml(plant.species)}</small>` : ''}
-            ${roomName ? `<br><small class="store-address">${escapeHtml(roomName)}</small>` : ''}
-          </span>
+          <div class="plant-kopf">
+            ${bild ? `<img class="plant-bild" src="${bild}" alt="" loading="lazy">` : ''}
+            <span class="item-name clickable" onclick="startEditPlant('${plant.id}')">
+              ${escapeHtml(plant.name)}
+              ${plant.species ? `<br><small class="store-address">${escapeHtml(plant.species)}</small>` : ''}
+              ${roomName ? `<br><small class="store-address">${escapeHtml(roomName)}</small>` : ''}
+            </span>
+          </div>
+          ${plant.notes ? `<p class="plant-notiz">${escapeHtml(plant.notes)}</p>` : ''}
           <p><a href="${searchUrl}" target="_blank" rel="noopener">Pflege-Infos suchen ↗</a></p>
           <div class="plant-care-tasks">${tasksHtml}</div>
           <button onclick="deletePlant('${plant.id}')">löschen</button>
