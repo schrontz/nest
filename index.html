@@ -156,9 +156,16 @@
         <div class="settings-group-body">
           <p id="welcome"></p>
 
-          <h3>Anzeigename</h3>
+          <h3>Anzeigename und Bild</h3>
           <p class="settings-hint">So erscheinst du für die anderen im Haushalt.</p>
           <input type="text" id="display-name-input" placeholder="Dein Anzeigename (z.B. Max)" maxlength="60">
+          <div id="avatar-aktuell" style="display:none;">
+            <img id="avatar-bild" class="avatar avatar-gross" alt="">
+            <p><label><input type="checkbox" id="avatar-remove"> Bild entfernen</label></p>
+          </div>
+          <label class="feld-label" for="avatar-input">Profilbild</label>
+          <input type="file" id="avatar-input" accept="image/*" onchange="zeigeBildVorschau(this, 'avatar-vorschau')">
+          <img id="avatar-vorschau" class="bild-vorschau" style="display:none;" alt="">
           <button onclick="saveDisplayName()">Speichern</button>
           <p id="display-name-status"></p>
 
@@ -211,6 +218,9 @@
           <h3>Läden</h3>
           <input type="text" id="store-name" placeholder="Neuer Laden (z.B. Aldi)">
           <input type="text" id="store-address" placeholder="Adresse (optional)">
+          <label class="feld-label" for="store-image">Logo (optional)</label>
+          <input type="file" id="store-image" accept="image/*" onchange="zeigeBildVorschau(this, 'store-image-preview')">
+          <img id="store-image-preview" class="bild-vorschau" style="display:none;" alt="">
           <button onclick="addStore()">Laden hinzufügen</button>
           <p id="store-status"></p>
           <ul id="store-list"></ul>
@@ -591,6 +601,12 @@
           <li class="editing">
             <input type="text" id="edit-store-name-${store.id}" value="${escapeHtml(store.name)}" placeholder="Name">
             <input type="text" id="edit-store-address-${store.id}" value="${escapeHtml(store.address || '')}" placeholder="Adresse (optional)">
+            ${store.image_path ? `
+              <img class="bild-vorschau" src="${bildUrl(store.image_path)}" alt="">
+              <p><label><input type="checkbox" id="edit-store-image-remove-${store.id}"> Logo entfernen</label></p>
+            ` : ''}
+            <label class="feld-label" for="edit-store-image-${store.id}">${store.image_path ? 'Logo ersetzen' : 'Logo hinzufügen'}</label>
+            <input type="file" id="edit-store-image-${store.id}" accept="image/*">
             <div class="edit-actions">
               <button onclick="saveEditStore('${store.id}')">Speichern</button>
               <button onclick="cancelEditStore()">Abbrechen</button>
@@ -598,8 +614,10 @@
           </li>
         `;
       }
+      const logo = bildUrl(store.image_path);
       return `
         <li>
+          ${logo ? `<img class="laden-logo" src="${logo}" alt="" loading="lazy">` : ''}
           <span class="item-name clickable" onclick="startEditStore('${store.id}')">
             ${escapeHtml(store.name)}
             ${store.address ? `<br><small class="store-address">${escapeHtml(store.address)}</small>` : ''}
@@ -626,15 +644,40 @@
       const address = addressEl.value.trim();
       if (!name) return;
 
+      const store = storesFullById[id];
+      const bildEl = document.getElementById('edit-store-image-' + id);
+      const entfernenEl = document.getElementById('edit-store-image-remove-' + id);
+
+      let imagePath = store ? store.image_path : null;
+      let altesBild = null;
+
+      if (bildEl && bildEl.files && bildEl.files[0]) {
+        try {
+          imagePath = await ladeBildHoch(bildEl.files[0], ladenBildOrdner());
+          altesBild = store ? store.image_path : null;
+        } catch (err) {
+          alert("Logo konnte nicht hochgeladen werden: " + err.message);
+          return;
+        }
+      } else if (entfernenEl && entfernenEl.checked) {
+        altesBild = imagePath;
+        imagePath = null;
+      }
+
       const { error } = await client
         .from('stores')
-        .update({ name: name, address: address || null })
+        .update({ name: name, address: address || null, image_path: imagePath })
         .eq('id', id);
 
       if (error) {
         console.error("Fehler beim Speichern:", error);
+        if (altesBild !== null && imagePath !== (store ? store.image_path : null)) {
+          await loescheBild(imagePath);
+        }
         return;
       }
+
+      await loescheBild(altesBild);
       editingStoreId = null;
       loadStores();
     }
@@ -644,17 +687,20 @@
       if (!confirm(`"${laden}" wirklich löschen? Zugeordnete Artikel verlieren dann ihre Laden-Zuordnung.`)) {
         return;
       }
+      const store = storesFullById[id];
       const { error } = await client.from('stores').delete().eq('id', id);
       if (error) {
         console.error("Fehler beim Löschen:", error);
         return;
       }
+      await loescheBild(store ? store.image_path : null);
       loadStores();
     }
 
     async function addStore() {
       const nameEl = document.getElementById('store-name');
       const addressEl = document.getElementById('store-address');
+      const bildEl = document.getElementById('store-image');
       const name = nameEl.value.trim();
       const address = addressEl.value.trim();
       const statusEl = document.getElementById('store-status');
@@ -664,18 +710,35 @@
         return;
       }
 
+      let imagePath = null;
+      if (bildEl && bildEl.files && bildEl.files[0]) {
+        statusEl.textContent = "Logo wird hochgeladen …";
+        try {
+          imagePath = await ladeBildHoch(bildEl.files[0], ladenBildOrdner());
+        } catch (err) {
+          statusEl.textContent = "Logo konnte nicht hochgeladen werden: " + err.message;
+          return;
+        }
+      }
+
       const { error } = await client.from('stores').insert({
         household_id: currentHouseholdId,
         name: name,
-        address: address || null
+        address: address || null,
+        image_path: imagePath
       });
 
       if (error) {
+        await loescheBild(imagePath);
         statusEl.textContent = "Fehler: " + error.message;
       } else {
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         nameEl.value = "";
         addressEl.value = "";
+        if (bildEl) {
+          bildEl.value = "";
+          zeigeBildVorschau(bildEl, 'store-image-preview');
+        }
         loadStores();
       }
     }
@@ -1327,10 +1390,17 @@
         return gruppen[a].name.localeCompare(gruppen[b].name);
       });
 
-      return keys.map(key => `
-        <h3>${escapeHtml(gruppen[key].name)}</h3>
+      return keys.map(key => {
+        const store = key === 'none' ? null : storesFullById[key];
+        const logo = store ? bildUrl(store.image_path) : null;
+        return `
+        <h3 class="laden-kopf">
+          ${logo ? `<img class="laden-logo" src="${logo}" alt="" loading="lazy">` : ''}
+          ${escapeHtml(gruppen[key].name)}
+        </h3>
         ${renderGroupedByDepartment(gruppen[key].items, key === 'none' ? null : key)}
-      `).join('');
+      `;
+      }).join('');
     }
 
     function toggleChoreAddForm() {
@@ -1368,12 +1438,18 @@
       if (!listEl) return;
       const selfId = currentSession ? currentSession.user.id : null;
 
-      listEl.innerHTML = householdMembers.map(m => `
+      listEl.innerHTML = householdMembers.map(m => {
+        const bild = bildUrl(m.avatar_path);
+        return `
         <li>
+          ${bild
+            ? `<img class="avatar" src="${bild}" alt="" loading="lazy">`
+            : `<span class="avatar avatar-platzhalter">${escapeHtml(memberInitiale(m))}</span>`}
           <span class="item-name">${escapeHtml(memberLabel(m))}${m.user_id === selfId ? ' (du)' : ''}</span>
           ${m.user_id !== selfId ? `<button onclick="removeMember('${m.user_id}')">entfernen</button>` : ''}
         </li>
-      `).join('');
+      `;
+      }).join('');
     }
 
     async function removeMember(userId) {
@@ -1415,6 +1491,13 @@
       return (m.display_name && m.display_name.trim()) ? m.display_name : m.email;
     }
 
+    // Fällt ein Profilbild weg, steht statt eines leeren Kreises der
+    // Anfangsbuchstabe darin.
+    function memberInitiale(m) {
+      const label = memberLabel(m) || '?';
+      return label.trim().charAt(0).toUpperCase();
+    }
+
     function memberOptions(selectedId) {
       const leer = `<option value="">– niemand zugewiesen –</option>`;
       const optionen = householdMembers.map(m =>
@@ -1432,6 +1515,20 @@
       const input = document.getElementById('display-name-input');
       if (input && document.activeElement !== input) {
         input.value = (own && own.display_name) ? own.display_name : '';
+      }
+
+      // Aktuelles Profilbild samt "entfernen"-Feld nur zeigen, wenn es eins gibt.
+      const bereich = document.getElementById('avatar-aktuell');
+      const bildEl = document.getElementById('avatar-bild');
+      if (!bereich || !bildEl) return;
+
+      const pfad = own ? own.avatar_path : null;
+      if (pfad) {
+        bildEl.src = bildUrl(pfad);
+        bereich.style.display = 'block';
+      } else {
+        bereich.style.display = 'none';
+        bildEl.removeAttribute('src');
       }
     }
 
@@ -1579,6 +1676,8 @@
     async function saveDisplayName() {
       const input = document.getElementById('display-name-input');
       const statusEl = document.getElementById('display-name-status');
+      const bildEl = document.getElementById('avatar-input');
+      const entfernenEl = document.getElementById('avatar-remove');
       const name = input.value.trim();
 
       if (name.length > 60) {
@@ -1587,14 +1686,46 @@
       }
 
       const { data: { user } } = await client.auth.getUser();
+      const eigenes = householdMembers.find(m => m.user_id === user.id);
+
+      let avatarPath = eigenes ? (eigenes.avatar_path || null) : null;
+      let altesBild = null;
+
+      if (bildEl && bildEl.files && bildEl.files[0]) {
+        statusEl.textContent = "Bild wird hochgeladen …";
+        try {
+          avatarPath = await ladeBildHoch(bildEl.files[0], profilBildOrdner(user.id), AVATAR_MAX_KANTE);
+          altesBild = eigenes ? (eigenes.avatar_path || null) : null;
+        } catch (err) {
+          statusEl.textContent = "Bild konnte nicht hochgeladen werden: " + err.message;
+          return;
+        }
+      } else if (entfernenEl && entfernenEl.checked) {
+        altesBild = avatarPath;
+        avatarPath = null;
+      }
+
       const { error } = await client
         .from('profiles')
-        .upsert({ id: user.id, display_name: name || null, updated_at: new Date().toISOString() });
+        .upsert({
+          id: user.id,
+          display_name: name || null,
+          avatar_path: avatarPath,
+          updated_at: new Date().toISOString()
+        });
 
       if (error) {
         statusEl.textContent = "Fehler: " + error.message;
         return;
       }
+
+      await loescheBild(altesBild);
+      if (bildEl) {
+        bildEl.value = "";
+        zeigeBildVorschau(bildEl, 'avatar-vorschau');
+      }
+      if (entfernenEl) entfernenEl.checked = false;
+
       statusEl.textContent = "Gespeichert!";
       await loadHouseholdMembers();
     }
@@ -1870,7 +2001,8 @@
     // Speicherplatz das Problem, sondern der Traffic bei jedem Anschauen --
     // das Freikontingent liegt bei 10 GB im Monat. Verkleinert landen wir bei
     // rund 200 KB pro Bild, also etwa einem Zwanzigstel.
-    function verkleinereBild(datei) {
+    function verkleinereBild(datei, maxKante) {
+      const grenze = maxKante || BILD_MAX_KANTE;
       return new Promise((resolve, reject) => {
         const leser = new FileReader();
         leser.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
@@ -1878,7 +2010,7 @@
           const bild = new Image();
           bild.onerror = () => reject(new Error('Dieses Bildformat wird vom Browser nicht unterstützt.'));
           bild.onload = () => {
-            const faktor = Math.min(1, BILD_MAX_KANTE / Math.max(bild.width, bild.height));
+            const faktor = Math.min(1, grenze / Math.max(bild.width, bild.height));
             const breite = Math.max(1, Math.round(bild.width * faktor));
             const hoehe = Math.max(1, Math.round(bild.height * faktor));
 
@@ -1910,8 +2042,8 @@
       return 'b' + Date.now() + Math.random().toString(16).slice(2);
     }
 
-    async function ladeBildHoch(datei, ordner) {
-      const blob = await verkleinereBild(datei);
+    async function ladeBildHoch(datei, ordner, maxKante) {
+      const blob = await verkleinereBild(datei, maxKante);
       const pfad = ordner + '/' + zufallsDateiname() + '.jpg';
 
       const { error } = await client.storage.from('bilder').upload(pfad, blob, {
@@ -1938,8 +2070,21 @@
       if (error) console.warn('Bild konnte nicht entfernt werden:', error.message);
     }
 
+    // Profilbilder werden nur klein angezeigt -- entsprechend kleiner ablegen.
+    const AVATAR_MAX_KANTE = 400;
+
     function pflanzenBildOrdner() {
       return 'households/' + currentHouseholdId + '/plants';
+    }
+
+    function ladenBildOrdner() {
+      return 'households/' + currentHouseholdId + '/stores';
+    }
+
+    function profilBildOrdner(userId) {
+      // Der Dateiname ist zufällig (siehe ladeBildHoch), der Ordner allein
+      // verrät also keine ratbare Bildadresse.
+      return 'profiles/' + userId;
     }
 
     const CARE_TYPE_LABELS = { giessen: 'Gießen', duengen: 'Düngen', umtopfen: 'Umtopfen' };

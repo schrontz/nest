@@ -524,3 +524,78 @@ li.plant-card p > a {
 li.plant-card > button {
   margin-top: 0.6rem;
 }
+
+/* Der native "Datei auswählen"-Knopf sieht in jedem Browser anders aus und
+   passt zu keinem. Beide Schreibweisen bewusst als getrennte Regeln: kennt
+   ein Browser einen der beiden Selektoren nicht, würde er sonst die ganze
+   Regel verwerfen. */
+input[type="file"]::file-selector-button {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  margin-right: 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-secondary);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  margin-right: 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-secondary);
+  color: white;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--color-secondary-dark);
+}
+
+.avatar {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-primary);
+}
+
+.avatar-platzhalter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-secondary-dark);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.avatar-gross {
+  width: 72px;
+  height: 72px;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.laden-logo {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--color-surface);
+}
+
+.laden-kopf {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
