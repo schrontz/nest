@@ -66,3 +66,27 @@
       if (due.getTime() === today.getTime()) return 'today';
       return null;
     }
+
+    // Priorität: von Aufgaben und Einkaufsartikeln gemeinsam genutzt.
+    // Bewusst dreistufig -- je feiner die Skala, desto seltener wird sie
+    // gepflegt. Nicht zu verwechseln mit Aufwand: "Bad putzen" ist aufwendig,
+    // aber selten dringend; "Klopapier" ist trivial, aber sehr dringend.
+    const PRIORITAET_LABELS = { normal: 'Normal', wichtig: 'Wichtig', dringend: 'Dringend' };
+    const PRIORITAET_RANG = { dringend: 2, wichtig: 1, normal: 0 };
+
+    function prioritaetOptions(selected) {
+      return Object.entries(PRIORITAET_LABELS).map(([val, label]) =>
+        `<option value="${val}" ${val === (selected || 'normal') ? 'selected' : ''}>${label}</option>`
+      ).join('');
+    }
+
+    function prioritaetRang(wert) {
+      return PRIORITAET_RANG[wert] || 0;
+    }
+
+    // Kleine Markierung neben dem Namen. "normal" bekommt bewusst keine --
+    // wenn alles markiert ist, sticht nichts mehr hervor.
+    function prioritaetChip(wert) {
+      if (!wert || wert === 'normal') return '';
+      return `<span class="prio-chip prio-${wert}">${PRIORITAET_LABELS[wert]}</span>`;
+    }
