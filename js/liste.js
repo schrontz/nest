@@ -388,6 +388,7 @@
       const einheit = document.getElementById('item-einheit').value;
       const storeId = document.getElementById('item-store').value;
       const departmentId = document.getElementById('item-department').value;
+      const priority = document.getElementById('item-priority').value;
       const statusEl = document.getElementById('add-status');
 
       if (!name) {
@@ -404,6 +405,7 @@
         einheit: einheit,
         store_id: storeId || null,
         department_id: departmentId || null,
+        priority: priority,
         created_by: user.id
       });
 
@@ -413,6 +415,7 @@
         statusEl.textContent = "\"" + name + "\" hinzugefügt!";
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
+        document.getElementById('item-priority').value = "normal";
       }
     }
 
@@ -475,6 +478,7 @@
       const einheit = document.getElementById('edit-einheit-' + id).value;
       const storeId = document.getElementById('edit-store-' + id).value;
       const departmentId = document.getElementById('edit-department-' + id).value;
+      const priority = document.getElementById('edit-priority-' + id).value;
 
       if (!name) return;
 
@@ -485,7 +489,8 @@
           menge: menge ? parseFloat(menge) : null,
           einheit: einheit,
           store_id: storeId || null,
-          department_id: departmentId || null
+          department_id: departmentId || null,
+          priority: priority
         })
         .eq('id', id);
 
@@ -505,6 +510,7 @@
             <select id="edit-einheit-${item.id}">${einheitOptions(item.einheit)}</select>
             <select id="edit-store-${item.id}">${storeOptions(item.store_id)}</select>
             <select id="edit-department-${item.id}">${departmentOptions(item.department_id)}</select>
+            <select id="edit-priority-${item.id}">${prioritaetOptions(item.priority)}</select>
             <div class="edit-actions">
               <button onclick="saveEdit('${item.id}')">Speichern</button>
               <button onclick="cancelEdit()">Abbrechen</button>
@@ -518,12 +524,20 @@
       const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';
       const creatorName = item.created_by ? (membersById[item.created_by] || null) : null;
 
+      // Bewusst nur hervorheben, nicht umsortieren: die Liste folgt der
+      // Abteilungsreihenfolge, also dem Laufweg durch den Laden. Den will man
+      // nicht für "Klopapier zuerst" zerreissen -- gebraucht wird
+      // Sichtbarkeit, nicht Reihenfolge.
+      const chip = item.status === 'offen' ? prioritaetChip(item.priority) : '';
+      const prioKlasse = (item.status === 'offen' && item.priority && item.priority !== 'normal')
+        ? ` prio-zeile-${item.priority}` : '';
+
       return `
-        <li style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
+        <li class="${prioKlasse.trim()}" style="${item.status === 'gekauft' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${item.status === 'gekauft' ? 'checked' : ''}
                  onchange="toggleStatus('${item.id}', this.checked)">
           <span class="${nameClass}"${nameClick}>
-            ${escapeHtml(item.name)}
+            ${chip}${escapeHtml(item.name)}
             ${item.menge ? ` – ${item.menge} ${EINHEIT_LABELS[item.einheit] || item.einheit}` : ''}
             ${creatorName ? `<br><small class="store-address">hinzugefügt von ${escapeHtml(creatorName)}</small>` : ''}
           </span>
