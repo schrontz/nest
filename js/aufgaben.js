@@ -176,12 +176,17 @@
         return;
       }
       editingChoreId = null;
+      loadChores();
     }
 
     async function toggleChoreStatus(id, isChecked) {
       const neuerStatus = isChecked ? 'erledigt' : 'offen';
       const { error } = await client.from('chores').update({ status: neuerStatus }).eq('id', id);
-      if (error) console.error("Fehler beim Ändern:", error);
+      if (error) {
+        console.error("Fehler beim Ändern:", error);
+        return;
+      }
+      loadChores();
     }
 
     async function deleteChore(id) {
@@ -191,7 +196,11 @@
         return;
       }
       const { error } = await client.from('chores').delete().eq('id', id);
-      if (error) console.error("Fehler beim Löschen:", error);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      loadChores();
     }
 
     async function addChore() {
@@ -236,6 +245,7 @@
         priorityEl.value = "normal";
         recurrenceValueEl.value = "";
         recurrenceUnitEl.value = "woche";
+        loadChores();
       }
     }
 
