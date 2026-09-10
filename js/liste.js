@@ -416,6 +416,7 @@
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
         document.getElementById('item-priority').value = "normal";
+        loadItems();
       }
     }
 
@@ -499,6 +500,7 @@
         return;
       }
       editingItemId = null;
+      loadItems();
     }
 
     function renderItem(item) {
@@ -638,7 +640,11 @@
         .update({ status: neuerStatus })
         .eq('id', id);
 
-      if (error) console.error("Fehler beim Ändern:", error);
+      if (error) {
+        console.error("Fehler beim Ändern:", error);
+        return;
+      }
+      loadItems();
     }
 
     async function deleteItem(id) {
@@ -652,5 +658,9 @@
         .delete()
         .eq('id', id);
 
-      if (error) console.error("Fehler beim Löschen:", error);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      loadItems();
     }
