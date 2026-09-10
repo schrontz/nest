@@ -87,44 +87,41 @@
       document.getElementById('onboarding-view').style.display = 'block';
     }
 
-    function subscribeToChanges() {
+    // Realtime ist ausschliesslich fuer Aenderungen des ANDEREN Geraets da.
+    // Eigene Aenderungen laedt jede Schreibfunktion selbst nach -- sonst haengt
+    // die Anzeige an einer WebSocket-Verbindung, die abbrechen kann.
+    //
+    // INSERT und UPDATE werden auf den eigenen Haushalt gefiltert. DELETE
+    // bewusst nicht: Postgres liefert beim Loeschen nur den Primaerschluessel
+    // mit -- bei aktivem RLS auch dann, wenn REPLICA IDENTITY auf FULL steht
+    // (so dokumentiert von Supabase). Ein Filter auf household_id kann darauf
+    // nie zutreffen, das Ereignis kaeme also nie an. Ungefiltert erreicht uns
+    // nur eine fremde UUID ohne jeden Inhalt, und was danach zu sehen ist,
+    // entscheidet beim Nachladen wieder RLS.
+    function subscribeTable(kanal, tabelle, nachladen) {
+      const filter = `household_id=eq.${currentHouseholdId}`;
       client
-        .channel('shopping_items_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'shopping_items', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadItems(); }
-        )
+        .channel(kanal)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: tabelle, filter: filter }, nachladen)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: tabelle, filter: filter }, nachladen)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: tabelle }, nachladen)
         .subscribe();
+    }
+
+    function subscribeToChanges() {
+      subscribeTable('shopping_items_changes', 'shopping_items', () => { loadItems(); });
     }
 
     function subscribeToChoreChanges() {
-      client
-        .channel('chores_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'chores', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadChores(); }
-        )
-        .subscribe();
+      subscribeTable('chores_changes', 'chores', () => { loadChores(); });
     }
 
     function subscribeToPlantChanges() {
-      client
-        .channel('plants_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'plants', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadPlants(); }
-        )
-        .subscribe();
+      subscribeTable('plants_changes', 'plants', () => { loadPlants(); });
     }
 
     function subscribeToCareTaskChanges() {
-      client
-        .channel('plant_care_tasks_changes')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'plant_care_tasks', filter: `household_id=eq.${currentHouseholdId}` },
-          () => { loadCareTasks(); }
-        )
-        .subscribe();
+      subscribeTable('plant_care_tasks_changes', 'plant_care_tasks', () => { loadCareTasks(); });
     }
 
     client.auth.onAuthStateChange(async (event, session) => {
