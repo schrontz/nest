@@ -87,6 +87,7 @@
         roomEl.value = "";
         bildEl.value = "";
         zeigeBildVorschau(bildEl, 'plant-image-preview');
+        loadPlants();
       }
     }
 
@@ -150,6 +151,7 @@
 
       await loescheBild(altesBild);
       editingPlantId = null;
+      loadPlants();
     }
 
     async function deletePlant(id) {
@@ -165,6 +167,8 @@
       }
       // Die Pflege-Erinnerungen räumt die Datenbank selbst ab, das Bild nicht.
       await loescheBild(plant ? plant.image_path : null);
+      loadPlants();
+      loadCareTasks();
     }
 
     function renderPlantList() {
@@ -283,6 +287,7 @@
         return;
       }
       addingCareTaskFor = null;
+      loadCareTasks();
     }
 
     function startEditCareTask(id) {
@@ -318,12 +323,17 @@
         return;
       }
       editingCareTaskId = null;
+      loadCareTasks();
     }
 
     async function toggleCareTaskStatus(id, isChecked) {
       const neuerStatus = isChecked ? 'erledigt' : 'offen';
       const { error } = await client.from('plant_care_tasks').update({ status: neuerStatus }).eq('id', id);
-      if (error) console.error("Fehler beim Ändern:", error);
+      if (error) {
+        console.error("Fehler beim Ändern:", error);
+        return;
+      }
+      loadCareTasks();
     }
 
     async function deleteCareTask(id) {
@@ -331,7 +341,11 @@
         return;
       }
       const { error } = await client.from('plant_care_tasks').delete().eq('id', id);
-      if (error) console.error("Fehler beim Löschen:", error);
+      if (error) {
+        console.error("Fehler beim Löschen:", error);
+        return;
+      }
+      loadCareTasks();
     }
 
     function renderCareTaskEditForm(task) {
