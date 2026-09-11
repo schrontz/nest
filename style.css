@@ -365,6 +365,69 @@ li.editing input, li.editing select {
   padding-left: calc(0.9rem - 4px);
 }
 
+/* Vorschläge beim Tippen in der Einkaufsliste. Bewusst eine eigene Liste
+   statt eines <datalist>: dessen Darstellung entscheidet der Browser, auf
+   dem iPhone erscheint sie als schmaler Streifen über der Tastatur, und die
+   Reihenfolge liesse sich nicht festlegen. */
+.vorschlag-feld {
+  position: relative;
+}
+
+.vorschlaege {
+  position: absolute;
+  top: calc(100% - 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1px solid #d3ddd8;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.vorschlaege li {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.vorschlaege li + li {
+  border-top: 1px solid #eef3f0;
+}
+
+/* Ein Knopf, damit die Zeile auch per Tastatur erreichbar ist -- aber ohne
+   das Knopf-Aussehen der App, hier ist es eine Listenzeile. */
+.vorschlaege li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  border-radius: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 1rem;
+  font-weight: 500;
+  min-height: 2.75rem;
+}
+
+.vorschlaege li button:hover,
+.vorschlaege li.aktiv button {
+  background: #eef6f1;
+}
+
+.vorschlaege li button small {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
 /* Pflege-Einträge in der Aufgabenliste leicht abgesetzt, damit auf einen
    Blick klar ist, dass die Zeile aus dem Pflanzen-Bereich kommt. Bewusst
    über den Hintergrund statt über einen linken Rand: den brauchen schon die

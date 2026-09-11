@@ -62,7 +62,12 @@
       <div class="add-card">
         <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="toggleAddForm()">+ Artikel hinzufügen</button>
         <div id="add-form" style="display:none;">
-          <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)">
+          <div class="vorschlag-feld">
+            <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)" autocomplete="off"
+                   oninput="zeigeVorschlaege()" onfocus="zeigeVorschlaege()"
+                   onblur="versteckeVorschlaegeVerzoegert()" onkeydown="vorschlagTaste(event)">
+            <ul id="item-name-vorschlaege" class="vorschlaege" style="display:none;"></ul>
+          </div>
           <input type="number" id="item-menge" placeholder="Menge" step="0.1">
           <select id="item-einheit">
             <option value="stueck">Stück</option>
