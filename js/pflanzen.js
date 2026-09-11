@@ -5,6 +5,9 @@
 // angefasst wurde.
 
     const CARE_TYPE_LABELS = { giessen: 'Gießen', duengen: 'Düngen', umtopfen: 'Umtopfen' };
+    // Verbform für die Aufgabenliste ("Basilikum gießen"). Dieselben Wörter
+    // benutzt auch die Push-Benachrichtigung.
+    const CARE_TYPE_VERBEN = { giessen: 'gießen', duengen: 'düngen', umtopfen: 'umtopfen' };
     const CARE_TYPES = ['giessen', 'duengen', 'umtopfen'];
 
     let allPlants = [];
@@ -209,7 +212,7 @@
       const bild = bildUrl(plant.image_path);
 
       return `
-        <li class="plant-card">
+        <li class="plant-card" id="plant-${plant.id}">
           <div class="plant-kopf">
             ${bild ? `<img class="plant-bild" src="${bild}" alt="" loading="lazy">` : ''}
             <span class="item-name clickable" onclick="startEditPlant('${plant.id}')">
@@ -249,6 +252,10 @@
       });
 
       renderPlantList();
+      // Die Aufgabenliste zeigt die fälligen Pflege-Einträge mit an und muss
+      // deshalb ebenfalls nachziehen -- auch beim ersten Laden, wo sie unter
+      // Umständen schon fertig gerendert war, bevor die Pflege da ist.
+      renderChores();
     }
 
     function startAddCareTask(plantId, type) {
@@ -346,6 +353,79 @@
         return;
       }
       loadCareTasks();
+    }
+
+    // --- Fällige Pflege in der Aufgabenliste -------------------------------
+    //
+    // Bewusst nur die Anzeige zusammengeführt, nicht die Daten: Pflege bleibt
+    // in ihrer eigenen Tabelle und wird weiterhin im Pflanzen-Bereich
+    // bearbeitet. Hier stehen nur die Einträge, die tatsächlich anstehen --
+    // sonst würden zwanzig Pflanzen mit je drei Pflegearten die echten
+    // Aufgaben zuschütten.
+    function faelligePflegeEintraege() {
+      const eigeneId = currentSession ? currentSession.user.id : null;
+      const nurMeine = choreViewFilter === 'meine';
+
+      return allCareTasks
+        .filter(task => {
+          if (nurMeine && task.assigned_to !== eigeneId) return false;
+          // Heute Erledigtes bleibt bis Mitternacht stehen: das Abhaken soll
+          // eine sichtbare Quittung haben und der Eintrag nicht wortlos
+          // verschwinden.
+          if (task.status === 'erledigt') return istHeute(task.completed_at);
+          return istInnerhalbVorlauf(task.due_date, task.recurrence_interval_value, task.recurrence_interval_unit);
+        })
+        .map(task => ({
+          due_date: task.due_date,
+          priority: 'normal',
+          status: task.status,
+          completed_at: task.completed_at,
+          html: renderPflegeEintrag(task)
+        }));
+    }
+
+    function renderPflegeEintrag(task) {
+      const plant = plantsById[task.plant_id];
+      const titel = escapeHtml((plant ? plant.name : 'Pflanze') + ' ' + (CARE_TYPE_VERBEN[task.type] || task.type));
+      const assignedName = task.assigned_to ? (membersById[task.assigned_to] || 'Unbekannt') : null;
+      const roomName = (plant && plant.room_id) ? (roomsById[plant.room_id] || null) : null;
+      const recurrenceLabel = formatRecurrence(task.recurrence_interval_value, task.recurrence_interval_unit);
+
+      const urgency = task.status === 'offen' ? getDueUrgency(task.due_date) : null;
+      const urgencyClass = urgency === 'overdue' ? 'chore-overdue' : (urgency === 'today' ? 'chore-due-today' : '');
+      const urgencyLabel = urgency === 'overdue' ? ' (überfällig)' : (urgency === 'today' ? ' (heute fällig)' : '');
+
+      const metaParts = ['Pflanzenpflege'];
+      if (assignedName) metaParts.push(`Zugewiesen: ${escapeHtml(assignedName)}`);
+      if (roomName) metaParts.push(escapeHtml(roomName));
+      if (recurrenceLabel) metaParts.push(recurrenceLabel);
+
+      const completedName = task.completed_by ? (membersById[task.completed_by] || 'Unbekannt') : null;
+      const completedDate = task.completed_at ? formatTimestampDate(task.completed_at) : null;
+
+      const titleLine = task.status === 'erledigt'
+        ? `${titel} – erledigt${completedDate ? ' am ' + completedDate : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
+        : `${titel}${task.due_date ? ` – fällig ${formatDueDate(task.due_date)}${urgencyLabel}` : ''}`;
+
+      // Kein Bearbeiten- und kein Löschen-Knopf: beides bleibt im
+      // Pflanzen-Bereich. Ein Klick springt stattdessen dorthin, statt
+      // dasselbe Formular ein zweites Mal zu bauen.
+      return `
+        <li class="pflege-eintrag ${urgencyClass}" style="${task.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
+          <input type="checkbox" ${task.status === 'erledigt' ? 'checked' : ''}
+                 onchange="toggleCareTaskStatus('${task.id}', this.checked)">
+          <span class="item-name clickable" onclick="springeZuPflanze('${task.plant_id}')">
+            ${titleLine}
+            <br><small class="store-address">${metaParts.join(' · ')}</small>
+          </span>
+        </li>
+      `;
+    }
+
+    function springeZuPflanze(plantId) {
+      showTab('pflanzen');
+      const el = document.getElementById('plant-' + plantId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function renderCareTaskEditForm(task) {
