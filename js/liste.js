@@ -416,8 +416,133 @@
         document.getElementById('item-name').value = "";
         document.getElementById('item-menge').value = "";
         document.getElementById('item-priority').value = "normal";
+        versteckeVorschlaege();
         loadItems();
       }
+    }
+
+    // --- Vorschläge beim Tippen ------------------------------------------
+    //
+    // Quelle ist alles, was jemals auf der Liste stand -- nicht nur das
+    // Häufigste. Wer "moz" tippt, sucht Mozzarella, auch wenn es erst einmal
+    // gekauft wurde. allItems liegt ohnehin schon geladen vor, es braucht
+    // also keine zusätzliche Abfrage.
+    //
+    // Die Reihenfolge: erst was mit dem Getippten beginnt, dann was es
+    // irgendwo enthält, innerhalb dessen das zuletzt Gekaufte zuerst.
+    const VORSCHLAEGE_MAX = 6;
+    const VORSCHLAG_AB_ZEICHEN = 2;
+    let aktiverVorschlag = -1;
+
+    function vorschlaegeFuer(eingabe) {
+      const suche = eingabe.trim();
+      if (suche.length < VORSCHLAG_AB_ZEICHEN) return [];
+
+      // allItems ist nach created_at absteigend sortiert -- der erste Treffer
+      // je Name ist damit automatisch der jüngste. Genau der soll gewinnen:
+      // Menge und Laden vom letzten Einkauf sind die brauchbaren Werte.
+      //
+      // Auch ein exakter Treffer wird angeboten. Naheliegend wäre, ihn
+      // wegzulassen -- der Name steht ja schon da. Aber der Sinn des Tippens
+      // auf den Vorschlag ist gerade, Menge, Laden und Abteilung vom letzten
+      // Mal mitzunehmen, und die fehlen beim reinen Tippen.
+      const gesehen = new Set();
+      const treffer = [];
+      allItems.forEach(item => {
+        const name = (item.name || '').trim();
+        if (!name) return;
+        const schluessel = normKurz(name);
+        if (gesehen.has(schluessel)) return;
+        const stelle = trefferStelle(name, suche);
+        if (stelle < 0) return;
+        gesehen.add(schluessel);
+        treffer.push({ item: item, amAnfang: stelle === 0 });
+      });
+
+      treffer.sort((a, b) => (a.amAnfang === b.amAnfang) ? 0 : (a.amAnfang ? -1 : 1));
+      return treffer.slice(0, VORSCHLAEGE_MAX).map(t => t.item);
+    }
+
+    function zeigeVorschlaege() {
+      const eingabe = document.getElementById('item-name').value;
+      const liste = document.getElementById('item-name-vorschlaege');
+      const treffer = vorschlaegeFuer(eingabe);
+      aktiverVorschlag = -1;
+
+      if (!treffer.length) {
+        liste.style.display = 'none';
+        liste.innerHTML = '';
+        return;
+      }
+
+      liste.innerHTML = treffer.map((item, i) => {
+        // Hinweis, wenn der Artikel gerade offen auf der Liste steht --
+        // sonst landet er versehentlich ein zweites Mal darauf.
+        const schonOffen = allItems.some(a =>
+          a.status === 'offen' && normKurz(a.name) === normKurz(item.name));
+        const zusatz = [];
+        if (item.store_id && storesById[item.store_id]) zusatz.push(escapeHtml(storesById[item.store_id]));
+        if (schonOffen) zusatz.push('steht schon auf der Liste');
+        return `
+          <li data-index="${i}">
+            <button type="button" onmousedown="event.preventDefault()" onclick="waehleVorschlag('${item.id}')">
+              ${escapeHtml(item.name)}
+              ${zusatz.length ? `<small class="store-address">${zusatz.join(' · ')}</small>` : ''}
+            </button>
+          </li>
+        `;
+      }).join('');
+      liste.style.display = 'block';
+    }
+
+    function versteckeVorschlaege() {
+      const liste = document.getElementById('item-name-vorschlaege');
+      liste.style.display = 'none';
+      liste.innerHTML = '';
+      aktiverVorschlag = -1;
+    }
+
+    // Der Klick auf einen Vorschlag löst zuerst blur aus. Ohne die kurze
+    // Verzögerung wäre die Liste weg, bevor der Klick ankommt.
+    function versteckeVorschlaegeVerzoegert() {
+      setTimeout(versteckeVorschlaege, 150);
+    }
+
+    function vorschlagTaste(event) {
+      const liste = document.getElementById('item-name-vorschlaege');
+      if (liste.style.display === 'none') return;
+      const eintraege = liste.querySelectorAll('li');
+      if (!eintraege.length) return;
+
+      if (event.key === 'Escape') { versteckeVorschlaege(); return; }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const richtung = event.key === 'ArrowDown' ? 1 : -1;
+        aktiverVorschlag = (aktiverVorschlag + richtung + eintraege.length) % eintraege.length;
+        eintraege.forEach((el, i) => el.classList.toggle('aktiv', i === aktiverVorschlag));
+        return;
+      }
+      if (event.key === 'Enter' && aktiverVorschlag >= 0) {
+        event.preventDefault();
+        eintraege[aktiverVorschlag].querySelector('button').click();
+      }
+    }
+
+    // Übernimmt Name, Menge, Einheit, Laden und Abteilung vom letzten Mal.
+    // Die Priorität bewusst NICHT: die hängt am Einkauf, nicht am Artikel --
+    // Klopapier ist mal dringend und mal nicht.
+    function waehleVorschlag(id) {
+      const item = allItems.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('item-name').value = item.name;
+      document.getElementById('item-menge').value = item.menge ?? '';
+      if (item.einheit) document.getElementById('item-einheit').value = item.einheit;
+      document.getElementById('item-store').value = item.store_id || '';
+      document.getElementById('item-department').value = item.department_id || '';
+
+      versteckeVorschlaege();
+      document.getElementById('add-status').textContent = '';
     }
 
     function toggleAddForm() {
