@@ -365,6 +365,14 @@ li.editing input, li.editing select {
   padding-left: calc(0.9rem - 4px);
 }
 
+/* Pflege-Einträge in der Aufgabenliste leicht abgesetzt, damit auf einen
+   Blick klar ist, dass die Zeile aus dem Pflanzen-Bereich kommt. Bewusst
+   über den Hintergrund statt über einen linken Rand: den brauchen schon die
+   Fälligkeits-Markierungen, und beides zusammen ginge nicht. */
+.pflege-eintrag {
+  background: #f0f7f2;
+}
+
 .chore-filter {
   display: flex;
   gap: 0.5rem;
