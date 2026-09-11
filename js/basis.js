@@ -17,6 +17,30 @@
       return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    // Für die Artikel-Vorschläge: Groß/Klein und Umlaute sollen beim Tippen
+    // egal sein. Dafür reicht eine Schreibweise nicht -- wer "Müsli" sucht,
+    // tippt entweder "musli" oder "muesli", und beides muss treffen. Also
+    // zwei Fassungen je Text, verglichen wird paarweise.
+    function normKurz(text) {
+      return String(text ?? '').toLowerCase()
+        .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+    }
+
+    function normLang(text) {
+      return String(text ?? '').toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+    }
+
+    // Rückgabe: -1 kein Treffer, 0 Treffer am Anfang, 1 Treffer in der Mitte.
+    function trefferStelle(name, suche) {
+      const stellen = [
+        normKurz(name).indexOf(normKurz(suche)),
+        normLang(name).indexOf(normLang(suche))
+      ].filter(i => i >= 0);
+      if (!stellen.length) return -1;
+      return Math.min(...stellen) === 0 ? 0 : 1;
+    }
+
     const RECURRENCE_UNIT_LABELS = {
       tag: 'Tag(e)', woche: 'Woche(n)', monat: 'Monat(e)', jahr: 'Jahr(e)'
     };
