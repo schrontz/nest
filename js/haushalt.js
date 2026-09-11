@@ -35,6 +35,9 @@
       });
 
       renderPlantList();
+      // Aufgaben zeigen den Zimmernamen ebenfalls an -- ohne das hier bliebe
+      // dort nach einer Umbenennung der alte Name stehen.
+      renderChores();
     }
 
     function renderRoomList() {
