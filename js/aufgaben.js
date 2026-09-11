@@ -51,7 +51,19 @@
       // Aufgabe in drei Wochen soll nicht über dem Müll stehen, der morgen
       // rausmuss. Die Priorität entscheidet bei gleichem Termin -- und bei
       // Aufgaben ganz ohne Termin, wo es sonst keine Ordnung gäbe.
-      const offen = sichtbar.filter(c => c.status === 'offen').sort((a, b) => {
+      // Aufgaben und fällige Pflanzenpflege landen in derselben Liste. Sie
+      // werden dafür auf die gemeinsamen Sortierfelder heruntergebrochen --
+      // die Darstellung bleibt getrennt, weil beide unterschiedlich viel
+      // können (Pflege hat keine Priorität und wird hier nicht bearbeitet).
+      const eintraege = sichtbar.map(chore => ({
+        due_date: chore.due_date,
+        priority: chore.priority,
+        status: chore.status,
+        completed_at: chore.completed_at,
+        html: renderChore(chore)
+      })).concat(faelligePflegeEintraege());
+
+      const offen = eintraege.filter(e => e.status === 'offen').sort((a, b) => {
         if (a.due_date && b.due_date && a.due_date !== b.due_date) {
           return a.due_date.localeCompare(b.due_date);
         }
@@ -59,14 +71,14 @@
         if (a.due_date && !b.due_date) return -1;
         return prioritaetRang(b.priority) - prioritaetRang(a.priority);
       });
-      const erledigt = sichtbar.filter(c => c.status === 'erledigt').sort((a, b) =>
+      const erledigt = eintraege.filter(e => e.status === 'erledigt').sort((a, b) =>
         (b.completed_at || '').localeCompare(a.completed_at || '')
       );
 
       const combined = offen.concat(erledigt);
 
       document.getElementById('chore-list').innerHTML = combined.length
-        ? combined.map(renderChore).join('')
+        ? combined.map(e => e.html).join('')
         : '<p class="store-address">Keine Aufgaben.</p>';
     }
 
