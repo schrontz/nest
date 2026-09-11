@@ -78,6 +78,7 @@
       subscribeToChoreChanges();
       subscribeToPlantChanges();
       subscribeToCareTaskChanges();
+      subscribeToSettingsChanges();
     }
 
     function showOnboarding() {
@@ -122,6 +123,16 @@
 
     function subscribeToCareTaskChanges() {
       subscribeTable('plant_care_tasks_changes', 'plant_care_tasks', () => { loadCareTasks(); });
+    }
+
+    // Zimmer, Läden und Abteilungen ändern sich im Alltag fast nie -- beim
+    // gemeinsamen Ersteinrichten aber laufend, und dann sitzen beide
+    // gleichzeitig in den Einstellungen. Ohne das hier legt einer ein Zimmer
+    // an, der andere sieht es nicht und legt es ein zweites Mal an.
+    function subscribeToSettingsChanges() {
+      subscribeTable('rooms_changes', 'rooms', () => { loadRooms(); });
+      subscribeTable('stores_changes', 'stores', () => { loadStores(); });
+      subscribeTable('departments_changes', 'departments', () => { loadDepartments(); });
     }
 
     client.auth.onAuthStateChange(async (event, session) => {
