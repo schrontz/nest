@@ -67,6 +67,40 @@
       return null;
     }
 
+    // Vorlauf für fällige Pflanzenpflege in der Aufgabenliste: ein Viertel
+    // des Intervalls, gedeckelt auf 7 Tage, mindestens 1 Tag.
+    //
+    // Eine feste Zahl geht nicht: bei "alle 3 Tage gießen" stünde mit drei
+    // Tagen Vorlauf dauerhaft etwas in der Liste, beim Düngen alle vier Wochen
+    // käme die Erinnerung dagegen zu spät. Der Deckel verhindert, dass
+    // Umtopfen alle zwei Jahre ein halbes Jahr vorher auftaucht.
+    const TAGE_JE_EINHEIT = { tag: 1, woche: 7, monat: 30, jahr: 365 };
+
+    function pflegeVorlaufTage(value, unit) {
+      const jeEinheit = TAGE_JE_EINHEIT[unit];
+      if (!value || !jeEinheit) return 1;
+      return Math.min(7, Math.max(1, Math.round((value * jeEinheit) / 4)));
+    }
+
+    function istInnerhalbVorlauf(dueDateStr, value, unit) {
+      if (!dueDateStr) return false;
+      const grenze = new Date();
+      grenze.setHours(0, 0, 0, 0);
+      grenze.setDate(grenze.getDate() + pflegeVorlaufTage(value, unit));
+      return new Date(dueDateStr + 'T00:00:00') <= grenze;
+    }
+
+    // Für die Quittung nach dem Abhaken: heute Erledigtes bleibt bis
+    // Mitternacht sichtbar, danach fällt es aus der Aufgabenliste heraus.
+    function istHeute(ts) {
+      if (!ts) return false;
+      const d = new Date(ts);
+      const heute = new Date();
+      return d.getFullYear() === heute.getFullYear()
+        && d.getMonth() === heute.getMonth()
+        && d.getDate() === heute.getDate();
+    }
+
     // Priorität: von Aufgaben und Einkaufsartikeln gemeinsam genutzt.
     // Bewusst dreistufig -- je feiner die Skala, desto seltener wird sie
     // gepflegt. Nicht zu verwechseln mit Aufwand: "Bad putzen" ist aufwendig,
