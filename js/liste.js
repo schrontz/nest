@@ -545,6 +545,109 @@
       document.getElementById('add-status').textContent = '';
     }
 
+    // --- Mehrere Artikel auf einmal ---------------------------------------
+    //
+    // Eine Zutat je Zeile. Erkannt wird nur eine führende Zahl und ein direkt
+    // folgendes Einheitenwort -- bewusst genügsam: lieber ein Artikel ohne
+    // Menge als ein falsch zerlegter. "Olivenöl extra vergine" soll nicht in
+    // Einzelteile zerfallen.
+    const EINHEIT_WOERTER = {
+      g: 'gramm', gr: 'gramm', gramm: 'gramm',
+      kg: 'kilogramm', kilo: 'kilogramm', kilogramm: 'kilogramm',
+      l: 'liter', liter: 'liter',
+      ml: 'milliliter', milliliter: 'milliliter',
+      stk: 'stueck', stueck: 'stueck', 'stück': 'stueck', st: 'stueck',
+      pck: 'packung', pkg: 'packung', packung: 'packung', packungen: 'packung'
+    };
+
+    function zerlegeZeile(zeile) {
+      const text = String(zeile || '').trim();
+      if (!text) return null;
+
+      const treffer = text.match(/^(\d+(?:[.,]\d+)?)\s*([A-Za-zÄÖÜäöüß]+)?\s*(.*)$/);
+      if (!treffer) return { name: text, menge: null, einheit: null };
+
+      const menge = parseFloat(treffer[1].replace(',', '.'));
+      const wort = (treffer[2] || '').toLowerCase();
+      const einheit = EINHEIT_WOERTER[wort] || null;
+      const rest = (einheit ? treffer[3] : ((treffer[2] || '') + ' ' + treffer[3])).trim();
+
+      // Nur eine Zahl ohne Namen ergibt keinen Artikel -- dann bleibt die
+      // Zeile so stehen, wie sie getippt wurde.
+      if (!rest) return { name: text, menge: null, einheit: null };
+      return { name: rest, menge: menge, einheit: einheit };
+    }
+
+    function toggleMehrereForm() {
+      const formEl = document.getElementById('mehrere-form');
+      const istOffen = formEl.style.display !== 'none';
+      formEl.style.display = istOffen ? 'none' : 'block';
+      document.getElementById('toggle-mehrere-link').textContent =
+        istOffen ? 'mehrere auf einmal' : 'einzeln hinzufügen';
+    }
+
+    // Wird aus der Einkaufsliste und aus dem Wochenplan aufgerufen.
+    async function mehrereHinzufuegen(textFeldId, statusFeldId) {
+      const feld = document.getElementById(textFeldId);
+      const statusEl = document.getElementById(statusFeldId);
+      if (!feld) return;
+
+      const zeilen = feld.value.split('\n').map(zerlegeZeile).filter(Boolean);
+      if (!zeilen.length) {
+        if (statusEl) statusEl.textContent = "Nichts einzutragen.";
+        return;
+      }
+
+      // Was offen auf der Liste steht, wird übersprungen statt doppelt
+      // angelegt -- beim Übernehmen mehrerer Gerichte überschneiden sich die
+      // Zutaten sonst ständig.
+      const offen = new Set(allItems.filter(i => i.status === 'offen').map(i => normKurz(i.name)));
+      const neu = [];
+      let uebersprungen = 0;
+
+      const { data: { user } } = await client.auth.getUser();
+
+      zeilen.forEach(z => {
+        const schluessel = normKurz(z.name);
+        if (offen.has(schluessel)) { uebersprungen++; return; }
+        offen.add(schluessel);
+
+        // Laden, Abteilung und Einheit vom letzten Mal mitnehmen -- dieselbe
+        // Quelle wie bei den Vorschlägen. So ist der Einkauf gleich nach
+        // Laufweg sortiert, statt unter "Ohne Laden" zu landen.
+        const frueher = allItems.find(i => normKurz(i.name) === schluessel);
+        neu.push({
+          household_id: currentHouseholdId,
+          name: z.name,
+          menge: z.menge,
+          einheit: z.einheit || (frueher && frueher.einheit ? frueher.einheit : 'stueck'),
+          store_id: frueher ? frueher.store_id : null,
+          department_id: frueher ? frueher.department_id : null,
+          priority: 'normal',
+          created_by: user.id
+        });
+      });
+
+      if (!neu.length) {
+        if (statusEl) statusEl.textContent = `Alles stand schon auf der Liste (${uebersprungen}).`;
+        feld.value = "";
+        return;
+      }
+
+      const { error } = await client.from('shopping_items').insert(neu);
+      if (error) {
+        if (statusEl) statusEl.textContent = "Fehler: " + error.message;
+        return;
+      }
+
+      if (statusEl) {
+        statusEl.textContent = neu.length + (neu.length === 1 ? " Artikel" : " Artikel") + " hinzugefügt"
+          + (uebersprungen ? `, ${uebersprungen} stand${uebersprungen === 1 ? '' : 'en'} schon auf der Liste.` : ".");
+      }
+      feld.value = "";
+      loadItems();
+    }
+
     function toggleAddForm() {
       const formEl = document.getElementById('add-form');
       const istOffen = formEl.style.display !== 'none';
