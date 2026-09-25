@@ -6,7 +6,7 @@
 // bewusst unverändert: so ist nachweisbar, dass beim Aufteilen keine Zeile
 // angefasst wurde.
 
-    const TAB_IDS = ['liste', 'aufgaben', 'pflanzen'];
+    const TAB_IDS = ['liste', 'aufgaben', 'pflanzen', 'essen'];
 
     let lastActiveTab = 'liste';
 
@@ -58,6 +58,7 @@
       loadHousehold();
       loadChores();
       loadPlants();
+      loadMealPlan();
       subscribeToAllChanges();
       setChoreView(choreViewFilter);
     }
@@ -78,6 +79,7 @@
       subscribeToChoreChanges();
       subscribeToPlantChanges();
       subscribeToCareTaskChanges();
+      subscribeToMealPlanChanges();
       subscribeToSettingsChanges();
     }
 
@@ -123,6 +125,10 @@
 
     function subscribeToCareTaskChanges() {
       subscribeTable('plant_care_tasks_changes', 'plant_care_tasks', () => { loadCareTasks(); });
+    }
+
+    function subscribeToMealPlanChanges() {
+      subscribeTable('meal_plan_changes', 'meal_plan', () => { loadMealPlan(); });
     }
 
     // Zimmer, Läden und Abteilungen ändern sich im Alltag fast nie -- beim
