@@ -197,9 +197,11 @@ create table if not exists public.plant_care_tasks (
   constraint plant_care_tasks_recurrence_interval_unit_check check ((recurrence_interval_unit = any (array['tag'::text, 'woche'::text, 'monat'::text, 'jahr'::text])))
 );
 
--- Wochenplan fuers Essen: ein freier Text je Haushalt und Tag. Bewusst ohne
--- Rezept-Bestand und ohne Zutaten-Zerlegung -- je weniger Pflege der Plan
--- braucht, desto groesser die Chance, dass er benutzt wird.
+-- Essensplan: je Tag Mittag und Abend. Ein Eintrag gehoert allen (fuer leer)
+-- oder einer Person -- so kann ein Platz einen gemeinsamen Eintrag haben oder
+-- zwei persoenliche, wenn getrennt gegessen wird. Bewusst ohne Rezepte,
+-- Portionen oder Vorrat: je weniger Pflege der Plan braucht, desto eher wird
+-- er benutzt.
 create table if not exists public.meal_plan (
   id uuid default gen_random_uuid() not null,
   household_id uuid not null,
@@ -207,18 +209,32 @@ create table if not exists public.meal_plan (
   text text not null,
   created_at timestamp with time zone default now() not null,
   created_by uuid,
+  mahlzeit text not null,
+  fuer uuid,
+  rest_von date,
   constraint meal_plan_pkey primary key (id),
   constraint meal_plan_household_id_fkey foreign key (household_id) references public.households(id) on delete cascade,
   constraint meal_plan_created_by_fkey foreign key (created_by) references auth.users(id) on delete set null,
-  -- Ein Eintrag je Tag: das Formular schreibt per upsert auf diesen Schluessel.
-  constraint meal_plan_household_datum_key unique (household_id, datum),
-  constraint meal_plan_text_not_blank check ((char_length(btrim(text)) > 0))
+  -- Loescht jemand sein Konto, verschwinden seine persoenlichen Eintraege.
+  -- set null waere falsch: aus "nur Jan" wuerde "Beide", und das kann mit
+  -- einem vorhandenen gemeinsamen Eintrag kollidieren.
+  constraint meal_plan_fuer_fkey foreign key (fuer) references auth.users(id) on delete cascade,
+  constraint meal_plan_mahlzeit_check check ((mahlzeit = any (array['mittag'::text, 'abend'::text]))),
+  constraint meal_plan_text_not_blank check ((char_length(btrim(text)) > 0)),
+  -- Ein Eintrag je Tag, Mahlzeit und Person; "fuer" leer heisst "Beide" und
+  -- zaehlt dabei wie eine eigene Person. NULLS NOT DISTINCT ist genau dafuer
+  -- da: ohne das waeren beliebig viele gemeinsame Eintraege im selben Platz
+  -- erlaubt.
+  constraint meal_plan_platz_key unique nulls not distinct (household_id, datum, mahlzeit, fuer)
 );
 
 comment on table public.meal_plan is
-  'Wochenplan fuers Essen. Ein freier Text je Tag, von beiden Mitgliedern '
-  'bearbeitbar. Leere Tage haben keine Zeile -- das Loeschen des Textes '
-  'entfernt den Eintrag.';
+  'Essensplan: je Tag Mittag und Abend. Ein Eintrag gehoert allen (fuer leer) '
+  'oder einer Person. rest_von markiert Vorgekochtes und nennt den Kochtag. '
+  'Leere Plaetze haben keine Zeile -- das Loeschen des Textes entfernt den Eintrag.';
+comment on column public.meal_plan.rest_von is
+  'Tag, an dem gekocht wurde. Eine Kopie mit Hinweis, keine Verknuepfung: '
+  'aendert sich der Ursprung, bleibt der Rest, wie er ist.';
 
 create table if not exists public.push_subscriptions (
   id uuid default gen_random_uuid() not null,
@@ -262,6 +278,7 @@ create index if not exists idx_departments_household_id on public.departments us
 create index if not exists idx_household_members_user_id on public.household_members using btree (user_id);
 create index if not exists idx_join_attempts_user_time on public.join_attempts using btree (user_id, attempted_at);
 create index if not exists idx_meal_plan_household_datum on public.meal_plan using btree (household_id, datum);
+create index if not exists idx_meal_plan_fuer on public.meal_plan using btree (fuer);
 create index if not exists idx_plant_care_tasks_assigned_to on public.plant_care_tasks using btree (assigned_to);
 create index if not exists idx_plant_care_tasks_completed_by on public.plant_care_tasks using btree (completed_by);
 create index if not exists idx_plant_care_tasks_created_by on public.plant_care_tasks using btree (created_by);
