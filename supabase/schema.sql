@@ -197,6 +197,29 @@ create table if not exists public.plant_care_tasks (
   constraint plant_care_tasks_recurrence_interval_unit_check check ((recurrence_interval_unit = any (array['tag'::text, 'woche'::text, 'monat'::text, 'jahr'::text])))
 );
 
+-- Wochenplan fuers Essen: ein freier Text je Haushalt und Tag. Bewusst ohne
+-- Rezept-Bestand und ohne Zutaten-Zerlegung -- je weniger Pflege der Plan
+-- braucht, desto groesser die Chance, dass er benutzt wird.
+create table if not exists public.meal_plan (
+  id uuid default gen_random_uuid() not null,
+  household_id uuid not null,
+  datum date not null,
+  text text not null,
+  created_at timestamp with time zone default now() not null,
+  created_by uuid,
+  constraint meal_plan_pkey primary key (id),
+  constraint meal_plan_household_id_fkey foreign key (household_id) references public.households(id) on delete cascade,
+  constraint meal_plan_created_by_fkey foreign key (created_by) references auth.users(id) on delete set null,
+  -- Ein Eintrag je Tag: das Formular schreibt per upsert auf diesen Schluessel.
+  constraint meal_plan_household_datum_key unique (household_id, datum),
+  constraint meal_plan_text_not_blank check ((char_length(btrim(text)) > 0))
+);
+
+comment on table public.meal_plan is
+  'Wochenplan fuers Essen. Ein freier Text je Tag, von beiden Mitgliedern '
+  'bearbeitbar. Leere Tage haben keine Zeile -- das Loeschen des Textes '
+  'entfernt den Eintrag.';
+
 create table if not exists public.push_subscriptions (
   id uuid default gen_random_uuid() not null,
   user_id uuid not null,
@@ -238,6 +261,7 @@ create index if not exists idx_chores_room_id on public.chores using btree (room
 create index if not exists idx_departments_household_id on public.departments using btree (household_id);
 create index if not exists idx_household_members_user_id on public.household_members using btree (user_id);
 create index if not exists idx_join_attempts_user_time on public.join_attempts using btree (user_id, attempted_at);
+create index if not exists idx_meal_plan_household_datum on public.meal_plan using btree (household_id, datum);
 create index if not exists idx_plant_care_tasks_assigned_to on public.plant_care_tasks using btree (assigned_to);
 create index if not exists idx_plant_care_tasks_completed_by on public.plant_care_tasks using btree (completed_by);
 create index if not exists idx_plant_care_tasks_created_by on public.plant_care_tasks using btree (created_by);
@@ -592,6 +616,7 @@ alter table public.chores              enable row level security;
 alter table public.plants              enable row level security;
 alter table public.plant_care_tasks    enable row level security;
 alter table public.push_subscriptions  enable row level security;
+alter table public.meal_plan           enable row level security;
 alter table public.join_attempts       enable row level security;  -- ohne Policy, siehe Kommentar oben
 
 drop policy if exists "Mitglieder sehen Aufgaben ihres Haushalts" on public.chores;
@@ -790,6 +815,35 @@ create policy "Mitglieder löschen Läden ihres Haushalts"
    from household_members
   where (household_members.user_id = ( select auth.uid() as uid))));
 
+-- Essensplan
+drop policy if exists "Mitglieder sehen den Essensplan ihres Haushalts" on public.meal_plan;
+create policy "Mitglieder sehen den Essensplan ihres Haushalts"
+  on public.meal_plan for select to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder fügen Essensplan-Einträge für ihren Haushalt hinzu" on public.meal_plan;
+create policy "Mitglieder fügen Essensplan-Einträge für ihren Haushalt hinzu"
+  on public.meal_plan for insert to public
+  with check ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder ändern den Essensplan ihres Haushalts" on public.meal_plan;
+create policy "Mitglieder ändern den Essensplan ihres Haushalts"
+  on public.meal_plan for update to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder löschen Essensplan-Einträge ihres Haushalts" on public.meal_plan;
+create policy "Mitglieder löschen Essensplan-Einträge ihres Haushalts"
+  on public.meal_plan for delete to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
 -- Haushalt selbst
 drop policy if exists "Mitglieder sehen ihren Haushalt" on public.households;
 create policy "Mitglieder sehen ihren Haushalt"
@@ -899,6 +953,7 @@ alter publication supabase_realtime add table public.plant_care_tasks;
 alter publication supabase_realtime add table public.rooms;
 alter publication supabase_realtime add table public.stores;
 alter publication supabase_realtime add table public.departments;
+alter publication supabase_realtime add table public.meal_plan;
 
 
 -- ============ 9. Storage ============
