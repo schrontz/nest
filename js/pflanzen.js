@@ -368,6 +368,10 @@
 
       return allCareTasks
         .filter(task => {
+          // Gießen ist Routine, alle paar Tage -- dafür steht die Pflanzen-
+          // Kachel auf dem Startbildschirm. In die Aufgabenliste gehört nur,
+          // was selten ist und deshalb vergessen wird: Düngen und Umtopfen.
+          if (task.type === 'giessen') return false;
           if (nurMeine && task.assigned_to !== eigeneId) return false;
           // Heute Erledigtes bleibt bis Mitternacht stehen: das Abhaken soll
           // eine sichtbare Quittung haben und der Eintrag nicht wortlos
