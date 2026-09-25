@@ -54,6 +54,7 @@
         <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
         <button class="tab-btn" id="tab-btn-aufgaben" onclick="showTab('aufgaben')">Aufgaben</button>
         <button class="tab-btn" id="tab-btn-pflanzen" onclick="showTab('pflanzen')">Pflanzen</button>
+        <button class="tab-btn" id="tab-btn-essen" onclick="showTab('essen')">Essen</button>
       </nav>
       <button id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
     </div>
@@ -89,6 +90,12 @@
             <option value="dringend">Dringend</option>
           </select>
           <button onclick="addItem()">Hinzufügen</button>
+          <button type="button" id="toggle-mehrere-link" class="link-knopf" onclick="toggleMehrereForm()">mehrere auf einmal</button>
+          <div id="mehrere-form" style="display:none;">
+            <textarea id="mehrere-text" rows="5" placeholder="Eine Zutat je Zeile:&#10;2 Zwiebeln&#10;500 g Mehl&#10;Olivenöl"></textarea>
+            <button onclick="mehrereHinzufuegen('mehrere-text', 'mehrere-status')">Auf die Liste</button>
+            <p id="mehrere-status" class="store-address"></p>
+          </div>
           <p id="add-status"></p>
         </div>
       </div>
@@ -160,6 +167,16 @@
 
       <h2>Pflanzen</h2>
       <ul id="plant-list"></ul>
+    </div>
+
+    <div id="tab-essen" class="tab-panel" style="display:none;">
+      <div class="woche-kopf">
+        <button type="button" class="woche-knopf" onclick="wocheWechseln(-1)" aria-label="Woche zurück">‹</button>
+        <span id="woche-label"></span>
+        <button type="button" class="woche-knopf" onclick="wocheWechseln(1)" aria-label="Woche vor">›</button>
+      </div>
+      <button type="button" id="woche-heute" class="link-knopf" onclick="wocheHeute()" style="display:none;">zur aktuellen Woche</button>
+      <ul id="meal-plan-list"></ul>
     </div>
 
     <div id="tab-einstellungen" class="tab-panel settings-panel" style="display:none;">
@@ -278,6 +295,7 @@
   <script src="js/liste.js"></script>
   <script src="js/aufgaben.js"></script>
   <script src="js/pflanzen.js"></script>
+  <script src="js/essen.js"></script>
   <script src="js/push.js"></script>
   <script src="js/app.js"></script>
 </body>
