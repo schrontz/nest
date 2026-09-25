@@ -49,17 +49,90 @@
   </div>
 
   <div id="app-view" style="display:none;">
-    <div class="app-header">
-      <nav class="tabs">
-        <button class="tab-btn" id="tab-btn-liste" onclick="showTab('liste')">Liste</button>
-        <button class="tab-btn" id="tab-btn-aufgaben" onclick="showTab('aufgaben')">Aufgaben</button>
-        <button class="tab-btn" id="tab-btn-pflanzen" onclick="showTab('pflanzen')">Pflanzen</button>
-        <button class="tab-btn" id="tab-btn-essen" onclick="showTab('essen')">Essen</button>
-      </nav>
-      <button id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
+    <!-- Startbildschirm: vier Kacheln, Zahlen und Texte füllt start.js -->
+    <div id="start-view" style="display:none;">
+      <div class="start-kopf">
+        <span id="start-datum" class="start-datum"></span>
+        <button type="button" class="rund-knopf" id="settings-btn-start" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
+      </div>
+      <div class="kachel-raster">
+
+        <button type="button" class="kachel kachel-liste" id="kachel-liste" onclick="showTab('liste')">
+          <span class="kachel-zahl" id="kachel-zahl-liste" style="display:none;"></span>
+          <svg viewBox="0 0 120 110" aria-hidden="true">
+            <path d="M72 10 C70 26 70 38 72 50" stroke="#7fc39a" stroke-width="7" stroke-linecap="round" fill="none"/>
+            <path d="M72 14 C80 8 88 8 94 12" stroke="#7fc39a" stroke-width="5" stroke-linecap="round" fill="none"/>
+            <path d="M71 16 C64 9 57 8 52 11" stroke="#abdeba" stroke-width="5" stroke-linecap="round" fill="none"/>
+            <circle cx="46" cy="44" r="12" fill="#e9a15a"/>
+            <path d="M46 32 q2 -6 7 -7" stroke="#33606d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            <path d="M26 48 H94 L88 102 H32 Z" fill="#f3e3c7" stroke="#33606d" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M26 48 L30 58 H90 L94 48" fill="#e8d3ad" stroke="#33606d" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M48 74 q12 10 24 0" stroke="#33606d" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="kachel-name">Einkaufen</span>
+          <span class="kachel-info" id="kachel-info-liste"></span>
+        </button>
+
+        <button type="button" class="kachel kachel-aufgaben" id="kachel-aufgaben" onclick="showTab('aufgaben')">
+          <span class="kachel-zahl" id="kachel-zahl-aufgaben" style="display:none;"></span>
+          <svg viewBox="0 0 120 110" aria-hidden="true">
+            <rect x="30" y="16" width="60" height="86" rx="8" fill="#ffffff" stroke="#33606d" stroke-width="3"/>
+            <rect x="46" y="9" width="28" height="14" rx="5" fill="#457c8c"/>
+            <rect x="40" y="38" width="12" height="12" rx="3" fill="#abdeba" stroke="#33606d" stroke-width="2.4"/>
+            <path d="M42.5 44 l3 3 l5 -6" stroke="#33606d" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="58" y1="44" x2="80" y2="44" stroke="#9fb6b0" stroke-width="3" stroke-linecap="round"/>
+            <rect x="40" y="58" width="12" height="12" rx="3" fill="#abdeba" stroke="#33606d" stroke-width="2.4"/>
+            <path d="M42.5 64 l3 3 l5 -6" stroke="#33606d" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="58" y1="64" x2="76" y2="64" stroke="#9fb6b0" stroke-width="3" stroke-linecap="round"/>
+            <rect x="40" y="78" width="12" height="12" rx="3" fill="#ffffff" stroke="#33606d" stroke-width="2.4"/>
+            <line x1="58" y1="84" x2="80" y2="84" stroke="#9fb6b0" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span class="kachel-name">Aufgaben</span>
+          <span class="kachel-info" id="kachel-info-aufgaben"></span>
+        </button>
+
+        <button type="button" class="kachel kachel-essen" id="kachel-essen" onclick="showTab('essen')">
+          <span class="kachel-zahl" id="kachel-zahl-essen" style="display:none;"></span>
+          <svg viewBox="0 0 120 110" aria-hidden="true">
+            <path d="M48 36 c-6 -8 6 -12 0 -22" stroke="#9fb6b0" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M62 34 c-6 -8 6 -12 0 -22" stroke="#9fb6b0" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M76 36 c-6 -8 6 -12 0 -22" stroke="#9fb6b0" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <rect x="24" y="46" width="76" height="8" rx="4" fill="#457c8c"/>
+            <path d="M30 54 H94 V86 a12 12 0 0 1 -12 12 H42 a12 12 0 0 1 -12 -12 Z" fill="#e9a15a" stroke="#33606d" stroke-width="3" stroke-linejoin="round"/>
+            <rect x="14" y="60" width="16" height="7" rx="3.5" fill="#33606d"/>
+            <rect x="94" y="60" width="16" height="7" rx="3.5" fill="#33606d"/>
+            <rect x="55" y="39" width="14" height="7" rx="3.5" fill="#33606d"/>
+            <circle cx="50" cy="74" r="3" fill="#f7ecdc"/><circle cx="62" cy="80" r="3" fill="#f7ecdc"/><circle cx="74" cy="72" r="3" fill="#f7ecdc"/>
+          </svg>
+          <span class="kachel-name">Essensplan</span>
+          <span class="kachel-info" id="kachel-info-essen"></span>
+        </button>
+
+        <button type="button" class="kachel kachel-pflanzen" id="kachel-pflanzen" onclick="showTab('pflanzen')">
+          <span class="kachel-zahl" id="kachel-zahl-pflanzen" style="display:none;"></span>
+          <svg viewBox="0 0 120 110" aria-hidden="true">
+            <path d="M60 64 C58 46 50 34 34 28 C34 46 44 58 60 64 Z" fill="#7fc39a" stroke="#33606d" stroke-width="2.6" stroke-linejoin="round"/>
+            <path d="M60 64 C62 44 72 30 90 24 C90 44 78 58 60 64 Z" fill="#abdeba" stroke="#33606d" stroke-width="2.6" stroke-linejoin="round"/>
+            <path d="M60 66 C60 44 58 24 62 10 C70 22 70 46 60 66 Z" fill="#7fc39a" stroke="#33606d" stroke-width="2.6" stroke-linejoin="round"/>
+            <path d="M38 66 H82 L77 100 H43 Z" fill="#e9a15a" stroke="#33606d" stroke-width="3" stroke-linejoin="round"/>
+            <rect x="34" y="62" width="52" height="10" rx="4" fill="#d98c45" stroke="#33606d" stroke-width="3"/>
+            <path d="M98 44 c-4 6 -6 9 -6 12 a6 6 0 0 0 12 0 c0 -3 -2 -6 -6 -12 z" fill="#8cc6d6" stroke="#33606d" stroke-width="2"/>
+          </svg>
+          <span class="kachel-name">Pflanzen</span>
+          <span class="kachel-info" id="kachel-info-pflanzen"></span>
+        </button>
+
+      </div>
     </div>
 
-    <div id="tab-liste" class="tab-panel">
+    <!-- Kopfzeile in jedem Bereich: zurück zum Start, Titel, Einstellungen -->
+    <div id="bereich-kopf" class="bereich-kopf" style="display:none;">
+      <button type="button" class="rund-knopf" id="zurueck-btn" onclick="zurueckZumStart()" aria-label="Zurück zum Start">‹</button>
+      <h2 id="bereich-titel"></h2>
+      <button type="button" class="rund-knopf" id="settings-btn" onclick="showSettings()" aria-label="Einstellungen">⚙</button>
+    </div>
+
+    <div id="tab-liste" class="tab-panel" style="display:none;">
       <div class="add-card">
         <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="toggleAddForm()">+ Artikel hinzufügen</button>
         <div id="add-form" style="display:none;">
@@ -183,7 +256,7 @@
       <button class="settings-close" onclick="closeSettings()" aria-label="Schließen">✕</button>
       <h2 class="settings-title">Einstellungen</h2>
 
-      <details class="settings-group" open>
+      <details class="settings-group" data-gruppe="konto" open>
         <summary>Mein Konto</summary>
         <div class="settings-group-body">
           <p id="welcome"></p>
@@ -218,7 +291,7 @@
         </div>
       </details>
 
-      <details class="settings-group">
+      <details class="settings-group" data-gruppe="haushalt">
         <summary>Haushalt</summary>
         <div class="settings-group-body">
           <h3>Name</h3>
@@ -244,7 +317,7 @@
         </div>
       </details>
 
-      <details class="settings-group">
+      <details class="settings-group" data-gruppe="einkaufsliste">
         <summary>Einkaufsliste</summary>
         <div class="settings-group-body">
           <h3>Läden</h3>
@@ -272,7 +345,7 @@
         </div>
       </details>
 
-      <details class="settings-group">
+      <details class="settings-group" data-gruppe="zimmer">
         <summary>Zimmer</summary>
         <div class="settings-group-body">
           <p class="settings-hint">Zimmer lassen sich Aufgaben und Pflanzen zuordnen.</p>
@@ -296,6 +369,7 @@
   <script src="js/aufgaben.js"></script>
   <script src="js/pflanzen.js"></script>
   <script src="js/essen.js"></script>
+  <script src="js/start.js"></script>
   <script src="js/push.js"></script>
   <script src="js/app.js"></script>
 </body>
