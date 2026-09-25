@@ -2,9 +2,35 @@
 // Auth-Zustandswechsel, der alles auslöst. Muss als letzte Datei geladen
 // werden -- vorher stehen die Funktionen der anderen Dateien noch nicht bereit.
 //
-// Die Einrückung stammt aus der Zeit, als alles in index.html stand, und ist
-// bewusst unverändert: so ist nachweisbar, dass beim Aufteilen keine Zeile
-// angefasst wurde.
+// Die Einrückung stammt aus der Zeit, als alles in index.html stand.
+//
+// Jeder Aufruf in eine andere Datei läuft über versuche(): fehlt eine Datei
+// (nicht hochgeladen, falsch benannt, Syntaxfehler) oder wirft eine Funktion,
+// fällt nur dieser eine Baustein aus -- der Rest der App inklusive
+// Live-Synchronisierung läuft weiter. Die Ursache steht in der Konsole.
+
+    // Ruft eine Funktion aus einer anderen Datei über ihren Namen auf.
+    // Funktionsdeklarationen auf oberster Ebene eines klassischen <script>
+    // landen auf window -- darüber lässt sich prüfen, ob die Datei geladen
+    // wurde, ohne einen ReferenceError zu riskieren. Fängt synchrone Fehler
+    // und abgelehnte Promises ab; ein await auf das Ergebnis wirft also nie.
+    function versuche(name, ...args) {
+      const fn = window[name];
+      if (typeof fn !== 'function') {
+        console.warn(`Nest: ${name}() fehlt – ist die zugehörige Datei geladen?`);
+        return undefined;
+      }
+      try {
+        const ergebnis = fn(...args);
+        if (ergebnis && typeof ergebnis.then === 'function') {
+          return ergebnis.catch(e => console.error(`Nest: ${name}() fehlgeschlagen:`, e));
+        }
+        return ergebnis;
+      } catch (e) {
+        console.error(`Nest: ${name}() fehlgeschlagen:`, e);
+        return undefined;
+      }
+    }
 
     const TAB_IDS = ['liste', 'aufgaben', 'pflanzen', 'essen'];
 
@@ -34,8 +60,8 @@
     function showSettings() {
       hideAllTabs();
       document.getElementById('tab-einstellungen').style.display = 'block';
-      checkPushStatus();
-      loadNotificationSettings();
+      versuche('checkPushStatus');
+      versuche('loadNotificationSettings');
     }
 
     function closeSettings() {
@@ -51,16 +77,18 @@
       // Mitglieder und Zimmer zuerst laden, damit Namen (statt nur E-Mails)
       // und Zimmer-Bezeichnungen schon beim ersten Rendern von Einkaufsliste,
       // Aufgaben und Pflanzen verfügbar sind.
-      await loadHouseholdMembers();
-      await loadRooms();
-      loadStores();
-      loadDepartments();
-      loadHousehold();
-      loadChores();
-      loadPlants();
-      loadMealPlan();
+      await versuche('loadHouseholdMembers');
+      await versuche('loadRooms');
+      versuche('loadStores');
+      versuche('loadDepartments');
+      versuche('loadHousehold');
+      versuche('loadChores');
+      versuche('loadPlants');
+      versuche('loadMealPlan');
       subscribeToAllChanges();
-      setChoreView(choreViewFilter);
+      // choreViewFilter ist ein let aus aufgaben.js -- typeof wirft auch dann
+      // nicht, wenn die Datei fehlt.
+      if (typeof choreViewFilter !== 'undefined') versuche('setChoreView', choreViewFilter);
     }
 
     // showApp() läuft bei jedem Auth-Event erneut (auch beim stündlichen
@@ -75,12 +103,12 @@
       if (subscribedHouseholdId !== null) client.removeAllChannels();
       subscribedHouseholdId = currentHouseholdId;
 
-      subscribeToChanges();
-      subscribeToChoreChanges();
-      subscribeToPlantChanges();
-      subscribeToCareTaskChanges();
-      subscribeToMealPlanChanges();
-      subscribeToSettingsChanges();
+      // Jedes Abo einzeln abgesichert: scheitert eines, stehen die übrigen.
+      [subscribeToChanges, subscribeToChoreChanges, subscribeToPlantChanges,
+       subscribeToCareTaskChanges, subscribeToMealPlanChanges, subscribeToSettingsChanges]
+        .forEach(abo => {
+          try { abo(); } catch (e) { console.error(`Nest: ${abo.name}() fehlgeschlagen:`, e); }
+        });
     }
 
     function showOnboarding() {
@@ -101,7 +129,16 @@
     // nie zutreffen, das Ereignis kaeme also nie an. Ungefiltert erreicht uns
     // nur eine fremde UUID ohne jeden Inhalt, und was danach zu sehen ist,
     // entscheidet beim Nachladen wieder RLS.
-    function subscribeTable(kanal, tabelle, nachladen) {
+    //
+    // nachladen ist der NAME der Ladefunktion. Fehlt die Datei dazu, wird die
+    // Tabelle gar nicht erst abonniert -- sonst liefen Events ins Leere und
+    // belasteten nur die Realtime-Verbindung.
+    function subscribeTable(kanal, tabelle, ladeFunktion) {
+      if (typeof window[ladeFunktion] !== 'function') {
+        console.warn(`Nest: kein Live-Abo für ${tabelle}, ${ladeFunktion}() fehlt.`);
+        return;
+      }
+      const nachladen = () => { versuche(ladeFunktion); };
       const filter = `household_id=eq.${currentHouseholdId}`;
       client
         .channel(kanal)
@@ -112,23 +149,23 @@
     }
 
     function subscribeToChanges() {
-      subscribeTable('shopping_items_changes', 'shopping_items', () => { loadItems(); });
+      subscribeTable('shopping_items_changes', 'shopping_items', 'loadItems');
     }
 
     function subscribeToChoreChanges() {
-      subscribeTable('chores_changes', 'chores', () => { loadChores(); });
+      subscribeTable('chores_changes', 'chores', 'loadChores');
     }
 
     function subscribeToPlantChanges() {
-      subscribeTable('plants_changes', 'plants', () => { loadPlants(); });
+      subscribeTable('plants_changes', 'plants', 'loadPlants');
     }
 
     function subscribeToCareTaskChanges() {
-      subscribeTable('plant_care_tasks_changes', 'plant_care_tasks', () => { loadCareTasks(); });
+      subscribeTable('plant_care_tasks_changes', 'plant_care_tasks', 'loadCareTasks');
     }
 
     function subscribeToMealPlanChanges() {
-      subscribeTable('meal_plan_changes', 'meal_plan', () => { loadMealPlan(); });
+      subscribeTable('meal_plan_changes', 'meal_plan', 'loadMealPlan');
     }
 
     // Zimmer, Läden und Abteilungen ändern sich im Alltag fast nie -- beim
@@ -136,9 +173,9 @@
     // gleichzeitig in den Einstellungen. Ohne das hier legt einer ein Zimmer
     // an, der andere sieht es nicht und legt es ein zweites Mal an.
     function subscribeToSettingsChanges() {
-      subscribeTable('rooms_changes', 'rooms', () => { loadRooms(); });
-      subscribeTable('stores_changes', 'stores', () => { loadStores(); });
-      subscribeTable('departments_changes', 'departments', () => { loadDepartments(); });
+      subscribeTable('rooms_changes', 'rooms', 'loadRooms');
+      subscribeTable('stores_changes', 'stores', 'loadStores');
+      subscribeTable('departments_changes', 'departments', 'loadDepartments');
     }
 
     client.auth.onAuthStateChange(async (event, session) => {
