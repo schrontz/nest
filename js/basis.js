@@ -41,6 +41,34 @@
       return Math.min(...stellen) === 0 ? 0 : 1;
     }
 
+    // Lokales Datum als yyyy-mm-dd. toISOString() waere hier falsch: es
+    // rechnet nach UTC um und schiebt abends den Tag nach vorn -- genau der
+    // Fehler, der uns bei den Wiederholungen schon einmal getroffen hat.
+    function datumStr(d) {
+      return d.getFullYear() + '-'
+        + String(d.getMonth() + 1).padStart(2, '0') + '-'
+        + String(d.getDate()).padStart(2, '0');
+    }
+
+    const WOCHENTAGE = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+    // getDay() zaehlt ab Sonntag; hier faengt die Woche am Montag an.
+    function montagDerWoche(versatz) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + (versatz || 0) * 7);
+      return d;
+    }
+
+    function tageDerWoche(versatz) {
+      const montag = montagDerWoche(versatz);
+      return WOCHENTAGE.map((name, i) => {
+        const d = new Date(montag);
+        d.setDate(montag.getDate() + i);
+        return { name: name, datum: datumStr(d), kurz: d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) };
+      });
+    }
+
     const RECURRENCE_UNIT_LABELS = {
       tag: 'Tag(e)', woche: 'Woche(n)', monat: 'Monat(e)', jahr: 'Jahr(e)'
     };
