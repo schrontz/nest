@@ -21,7 +21,19 @@
         zahlEl.textContent = zahl ? String(zahl) : '';
         zahlEl.classList.toggle('warnung', !!warnung);
       }
-      if (infoEl) infoEl.textContent = info || '';
+      if (infoEl) {
+        // Eine Zeile darf umbrechen (z.B. "Nächste: Müll rausbringen"). Bei
+        // mehreren Zeilen bekommt jede ihre eigene und endet notfalls mit
+        // "…" -- sonst frisst eine lange erste Zeile die zweite.
+        const zeilen = String(info || '').split('\n').filter(z => z !== '');
+        infoEl.classList.toggle('zeilenweise', zeilen.length > 1);
+        infoEl.innerHTML = '';
+        zeilen.forEach(z => {
+          const span = document.createElement('span');
+          span.textContent = z;
+          infoEl.appendChild(span);
+        });
+      }
     }
 
     function kachelEinkaufen() {
@@ -73,16 +85,22 @@
       // anzeigen als etwas Falsches.
       if (wochenVersatz !== 0) { setzeKachel('essen', 0, ''); return; }
 
-      const heute = new Date();
-      const morgen = new Date(); morgen.setDate(heute.getDate() + 1);
-      const h = mealPlan[datumStr(heute)];
-      // Sonntags liegt "morgen" schon in der nächsten Woche und ist nicht
-      // geladen -- dann steht dort eben nur der heutige Tag.
-      const m = mealPlan[datumStr(morgen)];
+      const heute = datumStr(new Date());
+      const ich = (typeof currentSession !== 'undefined' && currentSession) ? currentSession.user.id : null;
 
-      const zeilen = [h ? 'Heute: ' + h.text : 'Heute noch nichts geplant'];
-      if (m) zeilen.push('Morgen: ' + m.text);
-      setzeKachel('essen', 0, zeilen.join('\n'));
+      // Jeder sieht das Seine: gemeinsame Einträge und die eigenen, nicht die
+      // der anderen Person. Gibt es in einem Platz beides, zählt der eigene
+      // -- der ist genauer.
+      const fuerMich = mahlzeit => {
+        const hier = mealPlan.filter(e => e.datum === heute && e.mahlzeit === mahlzeit
+          && (!e.fuer || e.fuer === ich));
+        return hier.find(e => e.fuer === ich) || hier[0] || null;
+      };
+
+      const zeilen = [['mittag', 'Mittag'], ['abend', 'Abend']]
+        .map(([m, label]) => { const e = fuerMich(m); return e ? `${label}: ${e.text}` : null; })
+        .filter(Boolean);
+      setzeKachel('essen', 0, zeilen.length ? zeilen.join('\n') : 'Heute noch nichts geplant');
     }
 
     function kachelPflanzen() {
@@ -140,6 +158,14 @@
     // Beim Zurückkehren zum Start: Hat jemand im Essensplan geblättert, zurück
     // auf die laufende Woche -- sonst weiss die Kachel nicht, was heute gibt.
     function beimStartZeigen() {
+      // Offene Formulare im Essensplan schliessen: wer zum Start geht, ist
+      // dort fertig. Sonst steht beim nächsten Besuch noch das halb
+      // ausgefüllte Zutaten-Formular da wie liegengebliebene Arbeit.
+      if (typeof schliesseMealFormulare === 'function') {
+        schliesseMealFormulare();
+        if (typeof mealHinweis !== 'undefined') mealHinweis = '';
+        if (typeof renderMealPlan === 'function') renderMealPlan();
+      }
       if (typeof wochenVersatz !== 'undefined' && wochenVersatz !== 0 && typeof loadMealPlan === 'function') {
         wochenVersatz = 0;
         loadMealPlan();
