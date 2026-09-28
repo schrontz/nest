@@ -54,13 +54,27 @@
       setzeKachel('liste', offen.length, info, dringend > 0);
     }
 
+    // Zählt nur, was ansteht: Überfälliges, Heutiges und was innerhalb des
+    // Vorlaufs fällig wird (dieselbe Regel wie bei der Pflege: ein Viertel des
+    // Intervalls, 1 bis 7 Tage; einmalige Aufgaben 1 Tag). Wiederkehrende
+    // Aufgaben stehen nach dem Abhaken sofort wieder auf "offen" -- ohne diese
+    // Grenze fiele die Zahl nie auf 0. Aufgaben ohne Termin zählen hier nicht,
+    // in der Liste stehen sie weiter.
     function kachelAufgaben() {
       if (typeof allChores === 'undefined' || !startGeladen.has('loadChores')) return;
-      const offen = allChores.filter(c => c.status === 'offen');
-      if (!offen.length) { setzeKachel('aufgaben', 0, 'Nichts offen'); return; }
+      const alleOffen = allChores.filter(c => c.status === 'offen');
+      if (!alleOffen.length) { setzeKachel('aufgaben', 0, 'Nichts offen'); return; }
 
       const heute = datumStr(new Date());
-      const ueberfaellig = offen.some(c => c.due_date && c.due_date < heute);
+      const offen = alleOffen.filter(c => c.due_date
+        && istInnerhalbVorlauf(c.due_date, c.recurrence_interval_value, c.recurrence_interval_unit));
+      if (!offen.length) {
+        const spaeter = alleOffen.filter(c => c.due_date).map(c => c.due_date).sort()[0];
+        const [, m, t] = spaeter ? spaeter.split('-') : [];
+        setzeKachel('aufgaben', 0, spaeter ? `Nichts fällig\nNächste: ${Number(t)}.${Number(m)}.` : 'Nichts fällig');
+        return;
+      }
+      const ueberfaellig = offen.some(c => c.due_date < heute);
 
       // Dieselbe Reihenfolge wie in der Liste: Termin vor Priorität, ohne
       // Termin hinten.

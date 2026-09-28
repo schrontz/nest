@@ -71,15 +71,20 @@
         if (a.due_date && !b.due_date) return -1;
         return prioritaetRang(b.priority) - prioritaetRang(a.priority);
       });
-      const erledigt = eintraege.filter(e => e.status === 'erledigt').sort((a, b) =>
+      // Erledigtes älter als die Frist wird ausgeblendet (betrifft praktisch
+      // nur einmalige Aufgaben -- wiederkehrende stehen nachts wieder auf offen).
+      const alleErledigt = eintraege.filter(e => e.status === 'erledigt');
+      const erledigt = alleErledigt.filter(e => !istAelterAlsFrist(e.completed_at)).sort((a, b) =>
         (b.completed_at || '').localeCompare(a.completed_at || '')
       );
+      const ausgeblendet = alleErledigt.length - erledigt.length;
 
       const combined = offen.concat(erledigt);
 
-      document.getElementById('chore-list').innerHTML = combined.length
+      document.getElementById('chore-list').innerHTML = (combined.length
         ? combined.map(e => e.html).join('')
-        : '<p class="store-address">Keine Aufgaben.</p>';
+        : '<p class="store-address">Keine Aufgaben.</p>')
+        + (ausgeblendet ? `<p class="store-address" id="chores-ausgeblendet">Ältere erledigte Aufgaben (${ausgeblendet}) ausgeblendet.</p>` : '');
     }
 
     function renderChore(chore) {

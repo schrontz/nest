@@ -134,6 +134,19 @@
       return Math.min(7, Math.max(1, Math.round((value * jeEinheit) / 4)));
     }
 
+    // Erledigtes (Gekauftes, erledigte einmalige Aufgaben) wird nach dieser
+    // Frist ausgeblendet, nicht gelöscht: die Vorschläge beim Tippen leben
+    // von der Historie.
+    const AUSBLENDEN_NACH_TAGEN = 30;
+
+    function istAelterAlsFrist(ts) {
+      if (!ts) return false;
+      const grenze = new Date();
+      grenze.setHours(0, 0, 0, 0);
+      grenze.setDate(grenze.getDate() - AUSBLENDEN_NACH_TAGEN);
+      return new Date(ts) < grenze;
+    }
+
     function istInnerhalbVorlauf(dueDateStr, value, unit) {
       if (!dueDateStr) return false;
       const grenze = new Date();

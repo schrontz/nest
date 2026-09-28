@@ -656,6 +656,7 @@
     }
 
     let showGekauft = false;
+    let gekauftAusgeblendet = 0;    // Gekauftes älter als die Frist
 
     function toggleGekauft() {
       showGekauft = !showGekauft;
@@ -667,6 +668,12 @@
       const count = document.getElementById('item-list-gekauft').children.length;
       const link = document.getElementById('toggle-gekauft-link');
       link.textContent = (showGekauft ? "Gekauft ausblenden (" : "Gekauft anzeigen (") + count + ")";
+      const hinweis = document.getElementById('gekauft-ausgeblendet');
+      if (hinweis) {
+        hinweis.textContent = gekauftAusgeblendet
+          ? `Ältere Einkäufe (${gekauftAusgeblendet}) ausgeblendet, sie bleiben in den Vorschlägen.` : '';
+        hinweis.style.display = showGekauft && gekauftAusgeblendet ? 'block' : 'none';
+      }
     }
 
     function einheitOptions(selected) {
@@ -853,7 +860,15 @@
 
     function render() {
       const offen = allItems.filter(item => item.status === 'offen');
-      const gekauft = allItems.filter(item => item.status === 'gekauft');
+      // Gekauftes nach dem Kaufdatum, zuletzt Gekauftes oben. Älteres als die
+      // Frist wird nur ausgeblendet -- für die Vorschläge bleibt es in allItems.
+      // gekauft_am setzt ein Trigger; fehlt es (sollte nicht vorkommen), gilt
+      // das Anlegedatum.
+      const kaufdatum = item => item.gekauft_am || item.created_at || '';
+      const alleGekauft = allItems.filter(item => item.status === 'gekauft')
+        .sort((a, b) => kaufdatum(b).localeCompare(kaufdatum(a)));
+      const gekauft = alleGekauft.filter(item => !istAelterAlsFrist(kaufdatum(item)));
+      gekauftAusgeblendet = alleGekauft.length - gekauft.length;
 
       document.getElementById('item-list-offen').innerHTML = renderGroupedByStore(offen);
       document.getElementById('item-list-gekauft').innerHTML = gekauft.map(renderItem).join('');

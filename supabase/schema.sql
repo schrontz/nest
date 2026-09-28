@@ -109,6 +109,7 @@ create table if not exists public.shopping_items (
   store_id uuid,
   department_id uuid,
   priority text default 'normal'::text not null,
+  gekauft_am timestamp with time zone,
   constraint shopping_items_pkey primary key (id),
   constraint shopping_items_household_id_fkey foreign key (household_id) references public.households(id) on delete cascade,
   constraint shopping_items_created_by_fkey foreign key (created_by) references auth.users(id),
@@ -117,6 +118,10 @@ create table if not exists public.shopping_items (
   constraint shopping_items_status_check check ((status = any (array['offen'::text, 'gekauft'::text]))),
   constraint shopping_items_priority_check check ((priority = any (array['normal'::text, 'wichtig'::text, 'dringend'::text])))
 );
+
+comment on column public.shopping_items.gekauft_am is
+  'Zeitpunkt des Abhakens, per Trigger gesetzt. Bei Altbestand (vor 09/2026) '
+  'naeherungsweise das Anlegedatum.';
 
 create table if not exists public.rooms (
   id uuid default gen_random_uuid() not null,
@@ -619,6 +624,23 @@ begin
 end;
 $function$;
 
+-- Setzt das Kaufdatum beim Abhaken eines Einkaufsartikels (und loescht es
+-- beim Zuruecksetzen). Serverseitig, damit auch aeltere Clients es fuellen.
+create or replace function public.set_gekauft_am()
+ returns trigger
+ language plpgsql
+ set search_path to 'public'
+as $function$
+begin
+  if new.status = 'gekauft' and (tg_op = 'INSERT' or old.status is distinct from 'gekauft') then
+    new.gekauft_am := now();
+  elsif new.status = 'offen' then
+    new.gekauft_am := null;
+  end if;
+  return new;
+end;
+$function$;
+
 -- Liest ein Geheimnis aus dem Vault. Nur fuer den Cron-Job; authenticated
 -- hat hier bewusst KEIN Ausfuehrungsrecht.
 create or replace function public.get_app_secret(secret_name text)
@@ -637,6 +659,11 @@ drop trigger if exists trg_chores_completion_meta on public.chores;
 create trigger trg_chores_completion_meta
   before update on public.chores
   for each row execute function public.set_completion_meta();
+
+drop trigger if exists trg_shopping_items_gekauft_am on public.shopping_items;
+create trigger trg_shopping_items_gekauft_am
+  before insert or update on public.shopping_items
+  for each row execute function public.set_gekauft_am();
 
 drop trigger if exists trg_plant_care_completion_meta on public.plant_care_tasks;
 create trigger trg_plant_care_completion_meta
@@ -986,6 +1013,7 @@ revoke all on function public.get_app_secret(text)               from public, an
 -- Trigger-Funktion: Postgres prueft das Ausfuehrungsrecht beim Anlegen des
 -- Triggers, nicht beim Feuern -- der Entzug ist nachweislich folgenlos.
 revoke all on function public.set_completion_meta()              from public, anon, authenticated;
+revoke all on function public.set_gekauft_am()                   from public, anon, authenticated;
 
 -- Nur diese sieben ruft die App auf. Jede davon prueft die Mitgliedschaft
 -- selbst -- der Datenbank-Linter meldet sie als "von Angemeldeten aufrufbar",

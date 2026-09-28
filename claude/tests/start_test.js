@@ -126,7 +126,9 @@ async function neueSeite(browser, opts = {}) {
 
   console.log('\n=== Inhalte der Kacheln ===');
   check('Einkaufen', await kachel(page,'liste'), { zahl:'3', rot:false, info:'3 offen · Aldi, Rewe' });
-  check('Aufgaben', await kachel(page,'aufgaben'), { zahl:'2', rot:false, info:'Nächste: Müll rausbringen (heute)' });
+  // Seit Block 2 zählt die Kachel nur, was ansteht: "Bad putzen" (einmalig,
+  // in 3 Tagen) liegt ausserhalb des Vorlaufs von 1 Tag.
+  check('Aufgaben', await kachel(page,'aufgaben'), { zahl:'1', rot:false, info:'Nächste: Müll rausbringen (heute)' });
   check('Essensplan: nur Gemeinsames und Eigenes, nicht der Salat der anderen', await kachel(page,'essen'),
     { zahl:null, rot:false, info: 'Abend: Linsensuppe' });
   check('Pflanzen gebündelt, rot wegen überfällig', await kachel(page,'pflanzen'),
