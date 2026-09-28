@@ -35,6 +35,7 @@
       }
 
       mealPlan = data;
+      mealPoolAlt = true;
       renderMealPlan();
     }
 
@@ -193,8 +194,13 @@
 
       return `
         <div class="essen-formular">
-          <input type="text" id="meal-text-${id}" value="${eintrag ? escapeHtml(eintrag.text) : ''}"
-                 placeholder="z.B. Pasta Hackfleisch" onkeydown="if (event.key === 'Enter') saveMeal('${id}')">
+          <div class="vorschlag-feld">
+            <input type="text" id="meal-text-${id}" value="${eintrag ? escapeHtml(eintrag.text) : ''}"
+                   placeholder="z.B. Pasta Hackfleisch" autocomplete="off"
+                   oninput="zeigeEssenVorschlaege('${id}')" onblur="versteckeEssenVorschlaegeVerzoegert('${id}')"
+                   onkeydown="essenVorschlagTaste(event, '${id}')">
+            <ul id="meal-vorschlaege-${id}" class="vorschlaege" style="display:none;"></ul>
+          </div>
           <div class="essen-fuer" id="meal-fuer-${id}">${fuerAuswahl(fuer)}</div>
           <div class="essen-knoepfe">${knoepfe}</div>
           <p id="meal-status-${id}" class="store-address"></p>
@@ -221,6 +227,147 @@
     function fokus(id) {
       const feld = document.getElementById(id);
       if (feld) feld.focus();
+    }
+
+    // --- Vorschläge beim Tippen (Pool Stufe 1) -----------------------------
+    //
+    // Quelle ist alles, was jemals im Plan stand. Der Plan selbst lädt nur
+    // die angezeigte Woche, deshalb eine eigene, schlanke Abfrage nur über
+    // Text und Datum. Sie läuft erst, wenn ein Formular aufgeht, und nach
+    // jedem Neuladen des Plans wird sie als veraltet markiert -- so kommen
+    // auch Einträge vom anderen Gerät mit, ohne dass jede Wochen-Navigation
+    // eine zweite Abfrage auslöst.
+    //
+    // Ein Tipp füllt nur den Namen ein. Gespeichert wird weiter über
+    // "Speichern", damit man vorher noch wählen kann, für wen es ist.
+    const ESSEN_VORSCHLAEGE_MAX = 6;
+    const ESSEN_VORSCHLAG_AB_ZEICHEN = 2;   // eigene Konstante: liste.js kann fehlen
+    let mealPool = [];              // [{ text, datum }], neueste zuerst
+    let mealPoolAlt = true;
+    let mealPoolLaedt = null;
+    let aktiverEssenVorschlag = -1;
+
+    async function ladeMealPool() {
+      if (!mealPoolAlt) return;
+      if (mealPoolLaedt) return mealPoolLaedt;
+      mealPoolLaedt = (async () => {
+        const { data, error } = await client
+          .from('meal_plan')
+          .select('text, datum')
+          .order('datum', { ascending: false })
+          .limit(2000);
+        mealPoolLaedt = null;
+        if (error) {
+          console.error("Fehler beim Laden der Essens-Vorschläge:", error);
+          return;
+        }
+        mealPool = (data || []).slice().sort((a, b) => (a.datum < b.datum ? 1 : a.datum > b.datum ? -1 : 0));
+        mealPoolAlt = false;
+      })();
+      return mealPoolLaedt;
+    }
+
+    // Je Gericht ein Vorschlag. Als Datum zählt das letzte bereits
+    // vergangene ("zuletzt"); steht es nur in der Zukunft, das nächste
+    // geplante ("geplant").
+    function essenVorschlaegeFuer(eingabe) {
+      const suche = eingabe.trim();
+      if (suche.length < ESSEN_VORSCHLAG_AB_ZEICHEN) return [];
+      const heute = datumStr(new Date());
+      const gerichte = new Map();
+      mealPool.forEach(e => {
+        const text = (e.text || '').trim();
+        if (!text) return;
+        const schluessel = normKurz(text);
+        let g = gerichte.get(schluessel);
+        if (!g) {
+          const stelle = trefferStelle(text, suche);
+          if (stelle < 0) return;
+          g = { text: text, amAnfang: stelle === 0, zuletzt: null, geplant: null, reihenfolge: gerichte.size };
+          gerichte.set(schluessel, g);
+        }
+        if (e.datum <= heute) { if (!g.zuletzt || e.datum > g.zuletzt) g.zuletzt = e.datum; }
+        else if (!g.geplant || e.datum < g.geplant) g.geplant = e.datum;
+      });
+      // Genau das Getippte muss nicht noch einmal angeboten werden. Bewusst
+      // der rohe Vergleich: wer "musli" tippt, soll "Müsli" angeboten bekommen.
+      const treffer = [...gerichte.values()].filter(g => g.text !== suche);
+      // Innerhalb von Anfang/Mitte: zuletzt Gegessenes zuerst, nur Geplantes
+      // (noch nie gegessen) dahinter.
+      treffer.sort((a, b) => {
+        if (a.amAnfang !== b.amAnfang) return a.amAnfang ? -1 : 1;
+        if (!!a.zuletzt !== !!b.zuletzt) return a.zuletzt ? -1 : 1;
+        const da = a.zuletzt || a.geplant, db = b.zuletzt || b.geplant;
+        if (da !== db) return a.zuletzt ? (da < db ? 1 : -1) : (da < db ? -1 : 1);
+        return a.reihenfolge - b.reihenfolge;
+      });
+      return treffer.slice(0, ESSEN_VORSCHLAEGE_MAX);
+    }
+
+    function kurzDatum(datum) {
+      const [, m, t] = datum.split('-');
+      return `${t}.${m}.`;
+    }
+
+    async function zeigeEssenVorschlaege(id) {
+      await ladeMealPool();
+      const feld = document.getElementById('meal-text-' + id);
+      const liste = document.getElementById('meal-vorschlaege-' + id);
+      if (!feld || !liste || document.activeElement !== feld) return;
+      const treffer = essenVorschlaegeFuer(feld.value);
+      aktiverEssenVorschlag = -1;
+      if (!treffer.length) { versteckeEssenVorschlaege(id); return; }
+      liste.innerHTML = treffer.map((g, i) => {
+        const wann = g.zuletzt ? 'zuletzt ' + kurzDatum(g.zuletzt) : 'geplant ' + kurzDatum(g.geplant);
+        return `
+          <li data-index="${i}">
+            <button type="button" data-text="${escapeHtml(g.text)}"
+                    onmousedown="event.preventDefault()" onclick="waehleEssenVorschlag('${id}', this.dataset.text)">
+              ${escapeHtml(g.text)}
+              <small class="store-address">${wann}</small>
+            </button>
+          </li>`;
+      }).join('');
+      liste.style.display = 'block';
+    }
+
+    function versteckeEssenVorschlaege(id) {
+      const liste = document.getElementById('meal-vorschlaege-' + id);
+      if (liste) { liste.style.display = 'none'; liste.innerHTML = ''; }
+      aktiverEssenVorschlag = -1;
+    }
+
+    // Der Tipp auf einen Vorschlag löst zuerst blur aus; ohne Verzögerung
+    // wäre die Liste weg, bevor der Klick ankommt.
+    function versteckeEssenVorschlaegeVerzoegert(id) {
+      setTimeout(() => versteckeEssenVorschlaege(id), 150);
+    }
+
+    function essenVorschlagTaste(event, id) {
+      const liste = document.getElementById('meal-vorschlaege-' + id);
+      const offen = liste && liste.style.display !== 'none';
+      const eintraege = offen ? liste.querySelectorAll('li') : [];
+      if (offen && event.key === 'Escape') { versteckeEssenVorschlaege(id); return; }
+      if (offen && eintraege.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault();
+        const richtung = event.key === 'ArrowDown' ? 1 : -1;
+        aktiverEssenVorschlag = (aktiverEssenVorschlag + richtung + eintraege.length) % eintraege.length;
+        eintraege.forEach((el, i) => el.classList.toggle('aktiv', i === aktiverEssenVorschlag));
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (offen && aktiverEssenVorschlag >= 0) eintraege[aktiverEssenVorschlag].querySelector('button').click();
+        else saveMeal(id);
+      }
+    }
+
+    function waehleEssenVorschlag(id, text) {
+      const feld = document.getElementById('meal-text-' + id);
+      if (!feld) return;
+      feld.value = text;
+      versteckeEssenVorschlaege(id);
+      feld.focus();
     }
 
     function startEditMeal(id) {
