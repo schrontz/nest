@@ -137,7 +137,7 @@
     // Erledigtes (Gekauftes, erledigte einmalige Aufgaben) wird nach dieser
     // Frist ausgeblendet, nicht gelöscht: die Vorschläge beim Tippen leben
     // von der Historie.
-    const AUSBLENDEN_NACH_TAGEN = 30;
+    const AUSBLENDEN_NACH_TAGEN = 7;
 
     function istAelterAlsFrist(ts) {
       if (!ts) return false;

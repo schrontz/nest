@@ -75,24 +75,25 @@ const kachel = (p, id) => p.evaluate(id => ({
   check('Gar nichts offen: wie bisher', await kachel(page, 'aufgaben'), { zahl:null, rot:false, info:'Nichts offen' });
   await page.close();
 
-  console.log('\n=== Einkaufsliste: Gekauftes nach 30 Tagen ausblenden ===');
+  console.log('\n=== Einkaufsliste: Gekauftes nach 7 Tagen ausblenden ===');
   const it = (id, name, extra) => Object.assign({ id, name, menge: 1, einheit: 'stueck', store_id: 's1', department_id: null,
     status: 'gekauft', created_by: 'u1', household_id: 'h1', priority: 'normal' }, extra);
   page = await seite([], [
     it('i1', 'Zwiebeln', { created_at: '2026-09-20T10:00:00Z', gekauft_am: '2026-09-22T10:00:00Z' }),
     it('i2', 'Mozzarella', { created_at: '2026-08-01T10:00:00Z', gekauft_am: '2026-08-10T10:00:00Z' }),   // alt
     it('i3', 'Kaffee', { created_at: '2026-08-10T10:00:00Z', gekauft_am: '2026-09-24T10:00:00Z' }),      // lange notiert, gestern gekauft
-    it('i4', 'Brot', { created_at: '2026-09-15T10:00:00Z', gekauft_am: null }),                            // ohne Kaufdatum
+    it('i4', 'Brot', { created_at: '2026-09-21T10:00:00Z', gekauft_am: null }),                            // ohne Kaufdatum
+    it('i6', 'Butter', { created_at: '2026-09-14T10:00:00Z', gekauft_am: '2026-09-15T10:00:00Z' }),     // 10 Tage -> ausgeblendet
     it('i5', 'Olivenöl', { status: 'offen', created_at: '2026-07-01T10:00:00Z', gekauft_am: null })        // offen, alt
   ]);
   await page.evaluate(() => showTab('liste')); await page.waitForTimeout(200);
-  check('Link zählt nur die letzten 30 Tage', await page.textContent('#toggle-gekauft-link'), 'Gekauft anzeigen (3)');
+  check('Link zählt nur die letzten 7 Tage', await page.textContent('#toggle-gekauft-link'), 'Gekauft anzeigen (3)');
   check('Hinweis zugeklappt unsichtbar', await page.isVisible('#gekauft-ausgeblendet'), false);
   await page.click('#toggle-gekauft-link'); await page.waitForTimeout(150);
   check('Nach Kaufdatum, zuletzt Gekauftes oben',
     await page.$$eval('#item-list-gekauft li', l => l.map(x => x.innerText.split('\n')[0].trim().split(/\s+/)[0])), ['Kaffee', 'Zwiebeln', 'Brot']);
   check('Hinweis auf Ausgeblendetes', await page.textContent('#gekauft-ausgeblendet'),
-    'Ältere Einkäufe (1) ausgeblendet, sie bleiben in den Vorschlägen.');
+    'Ältere Einkäufe (2) ausgeblendet, sie bleiben in den Vorschlägen.');
   check('Hinweis sichtbar', await page.isVisible('#gekauft-ausgeblendet'), true);
   check('Offener alter Artikel bleibt offen sichtbar', await page.$$eval('#item-list-offen li', l => l.some(x => x.innerText.includes('Olivenöl'))), true);
   await page.evaluate(() => { const f = document.getElementById('toggle-add-link'); if (f && document.getElementById('item-name').offsetParent === null) f.click(); });
@@ -104,11 +105,12 @@ const kachel = (p, id) => p.evaluate(id => ({
   page = await seite([
     ch('x', 'Keller', null, { status: 'erledigt', completed_at: '2026-08-01T10:00:00Z' }),
     ch('y', 'Steuer', null, { status: 'erledigt', completed_at: '2026-09-20T10:00:00Z' }),
+    ch('v', 'Reifen', null, { status: 'erledigt', completed_at: '2026-09-15T10:00:00Z' }),   // 10 Tage -> ausgeblendet
     ch('z', 'Müll', '2026-09-27', w(1, 'woche'))
   ], []);
   await page.evaluate(() => showTab('aufgaben')); await page.waitForTimeout(200);
   check('Nur jüngere Erledigte sichtbar', await page.$$eval('#chore-list li', l => l.map(x => x.innerText.split(/[\n–]/)[0].trim())), ['Müll', 'Steuer']);
-  check('Hinweis', await page.textContent('#chores-ausgeblendet'), 'Ältere erledigte Aufgaben (1) ausgeblendet.');
+  check('Hinweis', await page.textContent('#chores-ausgeblendet'), 'Ältere erledigte Aufgaben (2) ausgeblendet.');
   check('Kein Überlauf auf 320 px', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.close();
 
