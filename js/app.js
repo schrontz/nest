@@ -242,6 +242,7 @@
 
     function subscribeToMealPlanChanges() {
       subscribeTable('meal_plan_changes', 'meal_plan', 'loadMealPlan');
+      subscribeTable('freezer_items_changes', 'freezer_items', 'loadFreezer');
     }
 
     // Zimmer, Läden und Abteilungen ändern sich im Alltag fast nie -- beim

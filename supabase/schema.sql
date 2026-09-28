@@ -236,6 +236,31 @@ comment on column public.meal_plan.rest_von is
   'Tag, an dem gekocht wurde. Eine Kopie mit Hinweis, keine Verknuepfung: '
   'aendert sich der Ursprung, bleibt der Rest, wie er ist.';
 
+-- Froster: was eingefroren ist und wofuer es eingeplant ist. Gegessen gilt
+-- es, sobald der eingeplante Tag vorbei ist -- kein Abhaken noetig.
+create table if not exists public.freezer_items (
+  id uuid default gen_random_uuid() not null,
+  household_id uuid not null,
+  name text not null,
+  eingefroren_am date default current_date not null,
+  created_at timestamp with time zone default now() not null,
+  created_by uuid,
+  aufgebraucht_am date,
+  meal_plan_id uuid,
+  constraint freezer_items_pkey primary key (id),
+  constraint freezer_items_household_id_fkey foreign key (household_id) references public.households(id) on delete cascade,
+  constraint freezer_items_created_by_fkey foreign key (created_by) references auth.users(id) on delete set null,
+  -- Wird der eingeplante Termin geloescht, liegt das Essen wieder im Froster.
+  constraint freezer_items_meal_plan_id_fkey foreign key (meal_plan_id) references public.meal_plan(id) on delete set null,
+  constraint freezer_items_meal_plan_id_key unique (meal_plan_id),
+  constraint freezer_items_name_not_blank check ((char_length(btrim(name)) > 0))
+);
+
+comment on table public.freezer_items is
+  'Froster: Eingefrorenes mit Datum. meal_plan_id verweist auf den Termin, '
+  'fuer den es eingeplant ist; ist der Termin vorbei, gilt es als gegessen. '
+  'aufgebraucht_am nur fuer von Hand Abgehaktes (gegessen ohne Plan, weggeworfen).';
+
 create table if not exists public.push_subscriptions (
   id uuid default gen_random_uuid() not null,
   user_id uuid not null,
@@ -279,6 +304,8 @@ create index if not exists idx_household_members_user_id on public.household_mem
 create index if not exists idx_join_attempts_user_time on public.join_attempts using btree (user_id, attempted_at);
 create index if not exists idx_meal_plan_household_datum on public.meal_plan using btree (household_id, datum);
 create index if not exists idx_meal_plan_fuer on public.meal_plan using btree (fuer);
+create index if not exists idx_freezer_items_household_id on public.freezer_items using btree (household_id);
+create index if not exists idx_freezer_items_created_by on public.freezer_items using btree (created_by);
 create index if not exists idx_plant_care_tasks_assigned_to on public.plant_care_tasks using btree (assigned_to);
 create index if not exists idx_plant_care_tasks_completed_by on public.plant_care_tasks using btree (completed_by);
 create index if not exists idx_plant_care_tasks_created_by on public.plant_care_tasks using btree (created_by);
@@ -634,6 +661,7 @@ alter table public.plants              enable row level security;
 alter table public.plant_care_tasks    enable row level security;
 alter table public.push_subscriptions  enable row level security;
 alter table public.meal_plan           enable row level security;
+alter table public.freezer_items       enable row level security;
 alter table public.join_attempts       enable row level security;  -- ohne Policy, siehe Kommentar oben
 
 drop policy if exists "Mitglieder sehen Aufgaben ihres Haushalts" on public.chores;
@@ -861,6 +889,35 @@ create policy "Mitglieder löschen Essensplan-Einträge ihres Haushalts"
    from household_members
   where (household_members.user_id = ( select auth.uid() as uid)))));
 
+-- Froster
+drop policy if exists "Mitglieder sehen den Froster ihres Haushalts" on public.freezer_items;
+create policy "Mitglieder sehen den Froster ihres Haushalts"
+  on public.freezer_items for select to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder fügen Froster-Einträge für ihren Haushalt hinzu" on public.freezer_items;
+create policy "Mitglieder fügen Froster-Einträge für ihren Haushalt hinzu"
+  on public.freezer_items for insert to public
+  with check ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder ändern den Froster ihres Haushalts" on public.freezer_items;
+create policy "Mitglieder ändern den Froster ihres Haushalts"
+  on public.freezer_items for update to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
+drop policy if exists "Mitglieder löschen Froster-Einträge ihres Haushalts" on public.freezer_items;
+create policy "Mitglieder löschen Froster-Einträge ihres Haushalts"
+  on public.freezer_items for delete to public
+  using ((household_id in ( select household_members.household_id
+   from household_members
+  where (household_members.user_id = ( select auth.uid() as uid)))));
+
 -- Haushalt selbst
 drop policy if exists "Mitglieder sehen ihren Haushalt" on public.households;
 create policy "Mitglieder sehen ihren Haushalt"
@@ -971,6 +1028,7 @@ alter publication supabase_realtime add table public.rooms;
 alter publication supabase_realtime add table public.stores;
 alter publication supabase_realtime add table public.departments;
 alter publication supabase_realtime add table public.meal_plan;
+alter publication supabase_realtime add table public.freezer_items;
 
 
 -- ============ 9. Storage ============

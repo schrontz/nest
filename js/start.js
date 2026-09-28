@@ -143,6 +143,28 @@
       setzeKachel('pflanzen', faellig.length, zeilen.join('\n'), ueberfaellig);
     }
 
+    // Hinweis über den Kacheln: was heute aus dem Froster muss, weil es
+    // morgen eingeplant ist. Für beide -- beide frieren ein, beide nehmen raus.
+    // Bewusst nicht in der Essen-Kachel: auf schmalen Handys würde er dort
+    // nach wenigen Buchstaben abgeschnitten.
+    function hinweisFroster() {
+      const el = document.getElementById('start-hinweis');
+      if (!el) return;
+      if (typeof frosterFuerMorgen !== 'function' || !startGeladen.has('loadFreezer')) {
+        el.style.display = 'none';
+        return;
+      }
+      const morgen = frosterFuerMorgen();
+      if (!morgen.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+      const namen = morgen.map(x => x.f.name).join(', ');
+      const mahlzeiten = [...new Set(morgen.map(x => x.t.mahlzeit))];
+      const wofuer = mahlzeiten.length === 1
+        ? `für morgen ${mahlzeiten[0] === 'mittag' ? 'Mittag' : 'Abend'}` : 'für morgen';
+      el.innerHTML = `<span class="start-hinweis-icon" aria-hidden="true">❄</span>
+        <span><b>Heute rausnehmen: ${escapeHtml(namen)}</b>${wofuer}</span>`;
+      el.style.display = 'flex';
+    }
+
     function renderStart() {
       const datumEl = document.getElementById('start-datum');
       if (datumEl) {
@@ -150,7 +172,7 @@
       }
       // Jede Kachel einzeln abgesichert: ein Fehler in einer lässt die
       // anderen stehen.
-      [kachelEinkaufen, kachelAufgaben, kachelEssen, kachelPflanzen].forEach(kachel => {
+      [hinweisFroster, kachelEinkaufen, kachelAufgaben, kachelEssen, kachelPflanzen].forEach(kachel => {
         try { kachel(); } catch (e) { console.error(`Nest: ${kachel.name}() fehlgeschlagen:`, e); }
       });
     }
@@ -181,7 +203,7 @@
     // Ebene liegen auf window, und ein Aufruf wie loadItems() in liste.js löst
     // zur Laufzeit über genau diese Eigenschaft auf -- er trifft also die
     // Hülle. (Im Test nachgeprüft, nicht nur angenommen.)
-    ['loadItems', 'loadChores', 'loadCareTasks', 'loadMealPlan'].forEach(name => {
+    ['loadItems', 'loadChores', 'loadCareTasks', 'loadMealPlan', 'loadFreezer'].forEach(name => {
       const original = window[name];
       if (typeof original !== 'function') return;
       window[name] = async function (...args) {
