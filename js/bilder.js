@@ -14,20 +14,51 @@
     const BILD_FEHLER_SPEICHER =
       'Dem Browser ist beim Umwandeln der Speicher ausgegangen. Lade die Seite einmal neu '
       + 'und versuch es erneut.';
+    // Die Vorschau hat das Foto schon angezeigt -- am Format liegt es dann
+    // nicht. Beobachtet auf Android: großes Kamerafoto, erster Versuch
+    // scheitert, nach Neuladen klappt dasselbe Bild. Das ist Speicher.
+    const BILD_FEHLER_SPEICHER_VORSCHAU =
+      'Das Foto ist in Ordnung, aber beim Verkleinern ging dem Browser der Speicher aus. '
+      + 'Lade die Seite einmal neu und versuch es erneut.';
+
+    // Maße der gewählten Datei, sobald die Vorschau sie angezeigt hat. Damit
+    // kann das Foto schon beim Decodieren verkleinert werden, und im
+    // Fehlerfall ist klar, dass das Format lesbar war.
+    const bildMasse = new WeakMap();
 
     // Zwei Wege, an die Bildpunkte zu kommen. createImageBitmap decodiert
     // direkt aus der Datei. Der alte Weg ging über FileReader.readAsDataURL:
     // ein 4-MB-Foto wird dabei erst zu gut 5 MB base64-Text, der neben dem
     // decodierten Bild und der Leinwand im Speicher liegt. Auf einem iPhone
     // reicht das, damit das zweite Foto in Folge nicht mehr durchgeht.
-    async function ladeBildQuelle(datei) {
+    async function ladeBildQuelle(datei, grenze) {
+      const masse = bildMasse.get(datei);
+      const technisch = [];
+
       if (typeof createImageBitmap === 'function') {
+        // Erst mit Verkleinern beim Decodieren: ein 50-Megapixel-Foto belegt
+        // entpackt rund 200 MB, verkleinert nur wenige. Nur die lange Kante
+        // wird vorgegeben, die andere folgt dem Seitenverhältnis. Stimmt die
+        // Ausrichtung nicht (EXIF-Drehung), wird das Ergebnis etwas größer
+        // als nötig -- die Leinwand danach begrenzt es ohnehin.
+        if (masse && grenze && Math.max(masse.breite, masse.hoehe) > grenze) {
+          const optionen = masse.breite >= masse.hoehe
+            ? { resizeWidth: grenze, resizeQuality: 'high' }
+            : { resizeHeight: grenze, resizeQuality: 'high' };
+          try {
+            const bitmap = await createImageBitmap(datei, optionen);
+            return { quelle: bitmap, freigeben: () => { if (bitmap.close) bitmap.close(); } };
+          } catch (err) {
+            technisch.push(err && err.name || 'Fehler');
+          }
+        }
         try {
           const bitmap = await createImageBitmap(datei);
           return { quelle: bitmap, freigeben: () => { if (bitmap.close) bitmap.close(); } };
         } catch (err) {
           // Manche Browser lesen ein Format nicht als Bitmap, sehr wohl aber
           // als <img>. Deshalb kein Abbruch, sondern der zweite Weg.
+          technisch.push(err && err.name || 'Fehler');
         }
       }
 
@@ -36,7 +67,14 @@
         const bild = await new Promise((resolve, reject) => {
           const el = new Image();
           el.onload = () => resolve(el);
-          el.onerror = () => reject(new Error(BILD_FEHLER_FORMAT));
+          el.onerror = () => {
+            technisch.push('img');
+            // Hat die Vorschau das Foto angezeigt, ist das Format lesbar --
+            // dann nicht zur iPhone-Einstellung schicken, sondern ehrlich
+            // sagen, dass der Speicher knapp war.
+            const text = masse ? BILD_FEHLER_SPEICHER_VORSCHAU : BILD_FEHLER_FORMAT;
+            reject(new Error(text + ' (Technisch: ' + technisch.join(', ') + ')'));
+          };
           el.src = url;
         });
         return { quelle: bild, freigeben: () => { bild.src = ''; } };
@@ -54,7 +92,7 @@
     // rund 200 KB pro Bild, also etwa einem Zwanzigstel.
     async function verkleinereBild(datei, maxKante) {
       const grenze = maxKante || BILD_MAX_KANTE;
-      const { quelle, freigeben } = await ladeBildQuelle(datei);
+      const { quelle, freigeben } = await ladeBildQuelle(datei, grenze);
 
       const faktor = Math.min(1, grenze / Math.max(quelle.width, quelle.height));
       const breite = Math.max(1, Math.round(quelle.width * faktor));
@@ -94,7 +132,16 @@
     }
 
     async function ladeBildHoch(datei, ordner, maxKante) {
-      const blob = await verkleinereBild(datei, maxKante);
+      let blob;
+      try {
+        blob = await verkleinereBild(datei, maxKante);
+      } catch (err) {
+        // Ein zweiter Versuch nach kurzer Pause: Speicher, den der erste
+        // Versuch belegt hat, ist dann oft wieder frei. Bei einem wirklich
+        // unlesbaren Format scheitert er genauso und meldet denselben Grund.
+        await new Promise(r => setTimeout(r, 800));
+        blob = await verkleinereBild(datei, maxKante);
+      }
       const pfad = ordner + '/' + zufallsDateiname() + '.jpg';
 
       const { error } = await client.storage.from('bilder').upload(pfad, blob, {
@@ -161,6 +208,11 @@
 
       const url = URL.createObjectURL(datei);
       vorschauUrls[vorschauId] = url;
+      vorschau.onload = () => {
+        if (vorschau.naturalWidth) {
+          bildMasse.set(datei, { breite: vorschau.naturalWidth, hoehe: vorschau.naturalHeight });
+        }
+      };
       vorschau.src = url;
       vorschau.style.display = 'block';
     }
