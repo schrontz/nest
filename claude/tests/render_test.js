@@ -151,6 +151,10 @@ window.supabase = {
   await page.evaluate(() => showTab('pflanzen'));
   await page.waitForTimeout(300);
 
+  // Seit Block 3: Übersicht als Kacheln, die Karte steckt in der Detailansicht.
+  await page.click('#plant-list li.p-kachel');
+  await page.waitForTimeout(200);
+
   const plantListHtml = await page.$eval('#plant-list', el => el.innerHTML);
   const careTaskCount = await page.$$eval('.care-task', els => els.length);
   const addBtnCount = await page.$$eval('.care-task-add-btn', els => els.length);
@@ -174,6 +178,10 @@ window.supabase = {
 
   // Back to Pflanzen tab to interact
   await page.evaluate(() => showTab('pflanzen'));
+  await page.waitForTimeout(200);
+
+  // Seit Block 3: Übersicht als Kacheln, die Karte steckt in der Detailansicht.
+  await page.click('#plant-list li.p-kachel');
   await page.waitForTimeout(200);
 
   await page.click('button.care-task-add-btn');

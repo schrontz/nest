@@ -61,6 +61,9 @@
       if (istBereich) document.getElementById('bereich-titel').textContent = BEREICH_TITEL[ansicht];
       if (ansicht !== 'einstellungen') aktuelleAnsicht = ansicht;
       if (ansicht === 'start') versuche('beimStartZeigen');
+      // Wer den Bereich neu betritt, landet in der Übersicht, nicht in der
+      // zuletzt offenen Pflanze.
+      if (ansicht === 'pflanzen') versuche('zeigePflanzenUebersicht');
       window.scrollTo(0, 0);
     }
 

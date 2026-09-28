@@ -170,16 +170,155 @@
       }
       // Die Pflege-Erinnerungen räumt die Datenbank selbst ab, das Bild nicht.
       await loescheBild(plant ? plant.image_path : null);
+      detailPlantId = null;
+      editingPlantId = null;
       loadPlants();
       loadCareTasks();
+    }
+
+    // --- Übersicht und Detail ------------------------------------------------
+    //
+    // Übersicht: Überschrift je Zimmer (alphabetisch, "Ohne Zimmer" am Ende),
+    // darunter die Pflanzen als Foto-Kacheln nach Namen. Ein Tipp auf die
+    // Kachel öffnet die Detailansicht mit allen Pflege-Punkten; Bearbeiten
+    // und Löschen liegen hinter dem Stift. Gießen geht direkt auf der Kachel
+    // (Tropfen) oder für ein ganzes Zimmer ("💧 alle").
+    let detailPlantId = null;
+    const OHNE_ZIMMER = '__ohne__';
+    const PFLEGE_SYMBOL = { giessen: '💧', duengen: '🌱', umtopfen: '🪴' };
+
+    function zeigePflanzenUebersicht() {
+      detailPlantId = null;
+      editingPlantId = null;
+      renderPlantList();
+    }
+
+    function oeffnePflanze(id) {
+      detailPlantId = id;
+      editingPlantId = null;
+      renderPlantList();
+      window.scrollTo(0, 0);
     }
 
     function renderPlantList() {
       const listEl = document.getElementById('plant-list');
       if (!listEl) return;
-      listEl.innerHTML = allPlants.length
-        ? allPlants.map(renderPlant).join('')
-        : '<li class="store-address" style="box-shadow:none; background:none;">Noch keine Pflanzen angelegt.</li>';
+      if (detailPlantId && !plantsById[detailPlantId]) detailPlantId = null;
+
+      // Das Anlegen gehört zur Übersicht, in der Detailansicht stört es.
+      const addLink = document.getElementById('toggle-plant-add-link');
+      if (addLink) addLink.style.display = detailPlantId ? 'none' : '';
+      const addForm = document.getElementById('plant-add-form');
+      if (addForm && detailPlantId) addForm.style.display = 'none';
+
+      if (detailPlantId) {
+        listEl.innerHTML = `
+          <li class="p-zurueck-zeile"><button type="button" class="p-zurueck" onclick="zeigePflanzenUebersicht()">‹ Alle Pflanzen</button></li>
+          ${renderPlant(plantsById[detailPlantId])}`;
+        return;
+      }
+
+      if (!allPlants.length) {
+        listEl.innerHTML = '<li class="store-address" style="box-shadow:none; background:none;">Noch keine Pflanzen angelegt.</li>';
+        return;
+      }
+
+      const gruppen = {};
+      allPlants.forEach(p => {
+        const key = p.room_id && roomsById[p.room_id] ? p.room_id : OHNE_ZIMMER;
+        (gruppen[key] = gruppen[key] || []).push(p);
+      });
+      const nachName = (a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' });
+      const zimmer = Object.keys(gruppen).filter(k => k !== OHNE_ZIMMER)
+        .sort((a, b) => roomsById[a].localeCompare(roomsById[b], 'de', { sensitivity: 'base' }));
+      if (gruppen[OHNE_ZIMMER]) zimmer.push(OHNE_ZIMMER);
+
+      listEl.innerHTML = zimmer.map(key => {
+        const pflanzen = gruppen[key].slice().sort(nachName);
+        const name = key === OHNE_ZIMMER ? 'Ohne Zimmer' : roomsById[key];
+        const offen = offeneGiessAufgaben(pflanzen).length;
+        return `
+          <li class="p-gruppe" data-zimmer="${key}">
+            <div class="p-raum">
+              <h3>${escapeHtml(name)} <small>(${pflanzen.length})</small></h3>
+              ${offen ? `<button type="button" class="p-alle" onclick="alleGegossen('${key}')" title="Alle Pflanzen hier als gegossen markieren" aria-label="Alle Pflanzen in ${escapeHtml(name)} als gegossen markieren">💧 alle</button>` : ''}
+            </div>
+            <ul class="p-raster">${pflanzen.map(renderPflanzenKachel).join('')}</ul>
+          </li>`;
+      }).join('');
+    }
+
+    function offeneGiessAufgaben(pflanzen) {
+      return pflanzen
+        .map(p => (careTasksByPlant[p.id] || {}).giessen)
+        .filter(t => t && t.status === 'offen');
+    }
+
+    // Das Dringendste einer Pflanze: überfällig vor heute, Gießen vor dem
+    // Rest. Alles andere bleibt unerwähnt, damit das Foto frei bleibt.
+    function dringendstePflege(plantId) {
+      const tasks = Object.values(careTasksByPlant[plantId] || {}).filter(t => t.status === 'offen' && t.due_date);
+      let beste = null;
+      tasks.forEach(t => {
+        const u = getDueUrgency(t.due_date);
+        if (u !== 'overdue' && u !== 'today') return;
+        const rang = (u === 'overdue' ? 0 : 2) + (t.type === 'giessen' ? 0 : 1);
+        if (!beste || rang < beste.rang) beste = { t, u, rang };
+      });
+      return beste;
+    }
+
+    function renderPflanzenKachel(plant) {
+      const bild = bildUrl(plant.image_path);
+      const dringend = dringendstePflege(plant.id);
+      let hinweis = '';
+      if (dringend) {
+        const wann = dringend.u === 'overdue' ? 'überfällig' : 'heute';
+        // Symbol statt Wort: "Düngen überfällig" passt auf 320 px nicht in die Kachel.
+        const was = PFLEGE_SYMBOL[dringend.t.type] || '';
+        hinweis = `<span class="p-hinweis ${dringend.u === 'overdue' ? 'rot' : 'gelb'}" title="${CARE_TYPE_LABELS[dringend.t.type]} ${wann}">${was} ${wann}</span>`;
+      }
+      const giessen = (careTasksByPlant[plant.id] || {}).giessen;
+      const fertig = giessen && giessen.status === 'erledigt';
+      const tropfen = giessen ? `
+        <button type="button" class="p-tropfen${fertig ? ' fertig' : ''}" onclick="event.stopPropagation(); tropfenGetippt('${plant.id}')"
+                aria-label="${escapeHtml(plant.name)} ${fertig ? 'doch nicht gegossen' : 'gegossen'}" aria-pressed="${fertig ? 'true' : 'false'}">${fertig ? '✓' : '💧'}</button>` : '';
+      return `
+        <li class="p-kachel" data-plant-id="${plant.id}" onclick="oeffnePflanze('${plant.id}')">
+          <div class="p-foto">
+            ${bild ? `<img src="${bild}" alt="" loading="lazy">` : '<div class="p-leer" aria-hidden="true">🪴</div>'}
+            ${hinweis}
+            ${tropfen}
+          </div>
+          <div class="p-name">${escapeHtml(plant.name)}</div>
+        </li>`;
+    }
+
+    function tropfenGetippt(plantId) {
+      const t = (careTasksByPlant[plantId] || {}).giessen;
+      if (!t) return;
+      toggleCareTaskStatus(t.id, t.status !== 'erledigt');
+    }
+
+    // Alle offenen Gieß-Pflegen des Zimmers, nicht nur die fälligen: wer das
+    // ganze Zimmer gießt, hat auch die Pflanze gegossen, die erst übermorgen
+    // dran gewesen wäre.
+    async function alleGegossen(key) {
+      const pflanzen = allPlants.filter(p =>
+        (key === OHNE_ZIMMER ? !(p.room_id && roomsById[p.room_id]) : p.room_id === key));
+      const tasks = offeneGiessAufgaben(pflanzen);
+      if (!tasks.length) return;
+      const zimmer = key === OHNE_ZIMMER ? 'ohne Zimmer' : `in „${roomsById[key]}“`;
+      const anzahl = tasks.length === 1 ? '1 Pflanze' : `${tasks.length} Pflanzen`;
+      if (!confirm(`${anzahl} ${zimmer} als gegossen markieren?`)) return;
+      const { error } = await client.from('plant_care_tasks')
+        .update({ status: 'erledigt' }).in('id', tasks.map(t => t.id));
+      if (error) {
+        console.error("Fehler beim Abhaken:", error);
+        alert("Konnte nicht gespeichert werden: " + error.message);
+        return;
+      }
+      loadCareTasks();
     }
 
     function renderPlant(plant) {
@@ -200,6 +339,7 @@
               <button onclick="saveEditPlant('${plant.id}')">Speichern</button>
               <button onclick="cancelEditPlant()">Abbrechen</button>
             </div>
+            <button type="button" class="plant-loeschen" onclick="deletePlant('${plant.id}')">Pflanze löschen</button>
           </li>
         `;
       }
@@ -210,21 +350,21 @@
       const tasksHtml = CARE_TYPES.map(type => renderCareTaskSlot(plant.id, type)).join('');
 
       const bild = bildUrl(plant.image_path);
+      const unterzeile = [plant.species, roomName].filter(Boolean).map(escapeHtml).join(' · ');
 
       return `
-        <li class="plant-card" id="plant-${plant.id}">
+        <li class="plant-card plant-detail" id="plant-${plant.id}">
+          ${bild ? `<img class="plant-bild" src="${bild}" alt="" loading="lazy">` : '<div class="plant-bild p-leer" aria-hidden="true">🪴</div>'}
           <div class="plant-kopf">
-            ${bild ? `<img class="plant-bild" src="${bild}" alt="" loading="lazy">` : ''}
             <span class="item-name clickable" onclick="startEditPlant('${plant.id}')">
               ${escapeHtml(plant.name)}
-              ${plant.species ? `<br><small class="store-address">${escapeHtml(plant.species)}</small>` : ''}
-              ${roomName ? `<br><small class="store-address">${escapeHtml(roomName)}</small>` : ''}
+              ${unterzeile ? `<br><small class="store-address">${unterzeile}</small>` : ''}
             </span>
+            <button type="button" class="plant-stift" onclick="startEditPlant('${plant.id}')" aria-label="${escapeHtml(plant.name)} bearbeiten">✎</button>
           </div>
           ${plant.notes ? `<p class="plant-notiz">${escapeHtml(plant.notes)}</p>` : ''}
-          <p><a href="${searchUrl}" target="_blank" rel="noopener">Pflege-Infos suchen ↗</a></p>
           <div class="plant-care-tasks">${tasksHtml}</div>
-          <button onclick="deletePlant('${plant.id}')">löschen</button>
+          <p><a href="${searchUrl}" target="_blank" rel="noopener">Pflege-Infos suchen ↗</a></p>
         </li>
       `;
     }
@@ -428,8 +568,7 @@
 
     function springeZuPflanze(plantId) {
       showTab('pflanzen');
-      const el = document.getElementById('plant-' + plantId);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      oeffnePflanze(plantId);
     }
 
     function renderCareTaskEditForm(task) {

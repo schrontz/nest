@@ -183,8 +183,9 @@ function check(label, actual, expected) {
   await page.waitForTimeout(400);
   if (!check('Pflanzen-Bereich ist offen', await page.isVisible('#tab-pflanzen'), true)) failures++;
   if (!check('Aufgaben-Bereich ist zu', await page.isVisible('#tab-aufgaben'), false)) failures++;
-  if (!check('Pflanzenkarte trägt eine Sprungmarke',
-    await page.$$eval('li.plant-card[id^=plant-]', e => e.length), 3)) failures++;
+  // Seit Block 3 öffnet der Sprung die Detailansicht genau dieser Pflanze.
+  if (!check('Detailansicht der Pflanze ist offen',
+    await page.$$eval('li.plant-detail[id^=plant-]', e => e.length), 1)) failures++;
 
   // --- Abhaken aus der Aufgabenliste heraus ---
   console.log('\n=== Abhaken ===');

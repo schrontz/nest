@@ -12,6 +12,7 @@ cd /tmp && for t in *_test.js; do echo "$t: $(node $t 2>&1 | grep -v agent-proxy
 - Erwartung: Jede Suite endet mit „ALLE TESTS BESTANDEN“ bzw. „Alles grün“.
 - **Bekanntes Rauschen:** `full_test` (2) und `bild_test` (1) zählen `ERR_NAME_NOT_RESOLVED` als JS-Fehler, weil die Sandbox Schriften/CDN nicht lädt. Echte Fehler stehen als Zeilen mit `FAIL` da: `node x_test.js | grep -c '^FAIL'` muss 0 sein.
 - Die Supabase-Attrappen stecken in den Suiten selbst (`STUB` in `essen_test.js` wird von `essen_pool_test.js` und `froster_test.js` mitbenutzt, `render_test.js` von `full_test`, `bild_test`, `bild_fix_test`). Neue Abfrage-Methoden im Client (zuletzt `limit`, `in`) müssen dort ergänzt werden.
+- `pflanzen_test.js` prüft Übersicht nach Zimmer, Kacheln, Tropfen, „💧 alle“ und die Detailansicht.
 - `block2_test.js` prüft Aufgaben-Kachel (Vorlauf) und das Ausblenden von Gekauftem/Erledigtem.
 - Relative Daten oder `page.clock.install()` verwenden, Selektoren über `data-`-Attribute.
 

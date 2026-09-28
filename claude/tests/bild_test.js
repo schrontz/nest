@@ -84,6 +84,10 @@ function check(label, actual, expected) {
   console.log('\n=== Darstellung ===');
   await page.evaluate(() => showTab('pflanzen'));
   await page.waitForTimeout(300);
+  check('Foto auf der Kachel', await page.$$eval('#plant-list li.p-kachel img', e => e.length), 1);
+  // Seit Block 3: Übersicht als Kacheln, die Karte steckt in der Detailansicht.
+  await page.click('#plant-list li.p-kachel');
+  await page.waitForTimeout(250);
   check('Foto auf der Pflanzenkarte', await page.$$eval('img.plant-bild', e => e.length), 1);
   check('Bild-URL aus dem Pfad gebildet',
     (await page.$eval('img.plant-bild', e => e.getAttribute('src'))).endsWith('/bilder/households/h1/plants/abc.jpg'), true);

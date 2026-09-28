@@ -87,6 +87,9 @@ function check(label, actual, expected) {
     // --- Tab: Pflanzen ---
     await page.evaluate(() => showTab('pflanzen'));
     await page.waitForTimeout(200);
+    // Seit Block 3: Übersicht als Kacheln, die Karte steckt in der Detailansicht.
+    await page.click('#plant-list li.p-kachel');
+    await page.waitForTimeout(200);
     if (!check('Pflanzen-Karte vorhanden', await page.$$eval('li.plant-card', e => e.length), 1)) failures++;
     if (!check('Zwei Pflege-Aufgaben vorhanden', await page.$$eval('.care-task', e => e.length), 2)) failures++;
     if (!check('Ein weiterer Pflege-Typ hinzufügbar', await page.$$eval('.care-task-add-btn', e => e.length), 1)) failures++;
