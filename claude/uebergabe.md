@@ -40,6 +40,8 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 - Kein Build-Schritt. `index.html`, `style.css`, `sw.js` (nur Push). Klassische Skripte in `js/`, Reihenfolge: basis, bilder, auth, haushalt, liste, aufgaben, pflanzen, essen, start, push, app. Top-Level-`let`/`const` sind skriptübergreifend global: keine Namen doppelt vergeben.
 - `versuche(name, …)` in `app.js`: eine fehlende Datei lässt nur ihren Teil ausfallen. Keine Abhängigkeiten zwischen Bereichsdateien (eigene Konstanten statt fremder).
+- `basis.js` hat `AUSBLENDEN_NACH_TAGEN` (7): Gekauftes und erledigte Aufgaben werden danach nur ausgeblendet, nie gelöscht, weil die Vorschläge beim Tippen von der Historie leben. `shopping_items.gekauft_am` setzt ein Trigger.
+- Aufgaben-Kachel zählt nur Überfälliges, Heutiges und was im Vorlauf liegt (`istInnerhalbVorlauf`); ohne Termin zählt nicht.
 - `start.js` umhüllt `loadItems`, `loadChores`, `loadCareTasks`, `loadMealPlan`, `loadFreezer` und zeichnet danach die Kacheln und den Hinweis über den Kacheln.
 - Realtime nur für Änderungen vom anderen Gerät. INSERT/UPDATE mit Haushaltsfilter, DELETE ungefiltert (RLS liefert nur den Primärschlüssel).
 - `li button` in `style.css` macht jeden Listen-Knopf grau: im Essensplan mit `#meal-plan-list …` überschreiben.
@@ -50,14 +52,15 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 ## Aktueller Stand
 
-- `main` = `5f006af` (Froster und Reste-Ziel), davor `e6f2308` (Pool Stufe 1), `e0a9e65` (Foto-Fix).
-- Block 1 (Essen) ist fertig und live, aber nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“.
+- `main` = `58068bf`. Heute live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
+- Alles nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“, Block 2.
 - Ältester offener Punkt: Push auf dem iPhone der Freundin.
-- Als Nächstes laut Backlog: Block 2 (Aufgaben-Kachel mit Vorlauf, Gekauftes aufräumen). Zum Start fragen, was beim Handy-Test von Block 1 aufgefallen ist.
+- Als Nächstes laut Backlog: Block 3 (Pflanzen: Winter-Rhythmus bis März, nach Zimmer, Foto-Kacheln). Zum Start fragen, was beim Handy-Test aufgefallen ist.
 
 ## Lehren
 
 - Nichts als gelöst melden, was nur vermutet ist. Bei Bugs zuerst in die Server-Logs schauen.
 - Kosten- und Tarif-Aussagen vorher prüfen.
 - Fehlschläge in den Suiten gegen den alten Code gegenprüfen, bevor man sie dem eigenen Code zuschreibt (so wurde das ERR_NAME-Rauschen erkannt).
+- Zahlen, mit denen ich argumentiere, live nachsehen statt schätzen: „etwa ein Dutzend“ Gekaufte waren in Wahrheit 70.
 - Mockup-Varianten wirklich auf 320 px ausprobieren: Der Froster-Hinweis in der Kachel sah im Kopf gut aus und war abgeschnitten.
