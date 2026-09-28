@@ -42,6 +42,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 - `versuche(name, …)` in `app.js`: eine fehlende Datei lässt nur ihren Teil ausfallen. Keine Abhängigkeiten zwischen Bereichsdateien (eigene Konstanten statt fremder).
 - `basis.js` hat `AUSBLENDEN_NACH_TAGEN` (7): Gekauftes und erledigte Aufgaben werden danach nur ausgeblendet, nie gelöscht, weil die Vorschläge beim Tippen von der Historie leben. `shopping_items.gekauft_am` setzt ein Trigger.
 - Aufgaben-Kachel zählt nur Überfälliges, Heutiges und was im Vorlauf liegt (`istInnerhalbVorlauf`); ohne Termin zählt nicht.
+- **Pflanzen:** Übersicht als Kacheln je Zimmer (`renderPlantList`), Detail über `detailPlantId`/`oeffnePflanze`, `zeigeAnsicht('pflanzen')` setzt auf die Übersicht zurück. Die alte Karte (`li.plant-card`) lebt nur noch in der Detailansicht.
 - `start.js` umhüllt `loadItems`, `loadChores`, `loadCareTasks`, `loadMealPlan`, `loadFreezer` und zeichnet danach die Kacheln und den Hinweis über den Kacheln.
 - Realtime nur für Änderungen vom anderen Gerät. INSERT/UPDATE mit Haushaltsfilter, DELETE ungefiltert (RLS liefert nur den Primärschlüssel).
 - `li button` in `style.css` macht jeden Listen-Knopf grau: im Essensplan mit `#meal-plan-list …` überschreiben.
@@ -52,10 +53,10 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 ## Aktueller Stand
 
-- `main` = `58068bf`. Heute live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
-- Alles nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“, Block 2.
+- `main` = `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
+- Alles nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“, Block 2, Pflanzen (echte Fotos, Silbentrennung).
 - Ältester offener Punkt: Push auf dem iPhone der Freundin.
-- Als Nächstes laut Backlog: Block 3 (Pflanzen: Winter-Rhythmus bis März, nach Zimmer, Foto-Kacheln). Zum Start fragen, was beim Handy-Test aufgefallen ist.
+- Als Nächstes laut Backlog: Winter-Rhythmus der Pflege (Rest von Block 3, muss bis März stehen), danach Block 4 (Design). Zum Start fragen, was beim Handy-Test aufgefallen ist.
 
 ## Lehren
 
