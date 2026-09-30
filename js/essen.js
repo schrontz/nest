@@ -229,10 +229,14 @@
             <div class="essen-knoepfe">
               <button type="button" onclick="restNachZiel('${id}')">Übertragen</button>
             </div>
+            ${istAusFroster(eintrag.id) ? `
+            <div class="essen-knoepfe froster-einfrieren">
+              <button type="button" class="froster-knopf" onclick="zurueckInDenFroster('${id}')">❄ Zurück in den Froster</button>
+            </div>` : `
             ${portionenWahl('r-' + id)}
             <div class="essen-knoepfe froster-einfrieren">
               <button type="button" class="froster-knopf" data-portionen-knopf="r-${id}" onclick="inDenFroster('${id}')">❄ In den Froster</button>
-            </div>
+            </div>`}
           </div>` : ''}
           <p id="meal-status-${id}" class="store-address"></p>
         </div>
@@ -965,6 +969,35 @@
         return;
       }
       mealHinweis = `„${quelle.text}"${portionenText(anzahl)} liegt jetzt im Froster.`;
+      schliesseMealFormulare();
+      loadMealPlan();
+    }
+
+    // Für Einträge, die aus dem Froster eingeplant wurden: nicht neu
+    // einfrieren (das ergäbe eine Portion zu viel), sondern die Portion
+    // zurücklegen und den Termin entfernen. Die Verknüpfung wird ausdrücklich
+    // gelöst, obwohl der Fremdschlüssel beim Löschen dasselbe täte -- so hängt
+    // das Ergebnis nicht an der Reihenfolge der Realtime-Ereignisse.
+    async function zurueckInDenFroster(id) {
+      const quelle = mealPlan.find(e => e.id === id);
+      const f = freezerItems.find(x => x.meal_plan_id === id);
+      if (!quelle || !f) return;
+      const statusEl = document.getElementById('meal-status-' + id);
+      const { error: fehlerLoesen } = await client.from('freezer_items')
+        .update({ meal_plan_id: null }).eq('id', f.id);
+      if (fehlerLoesen) {
+        console.error("Fehler beim Zurücklegen:", fehlerLoesen);
+        statusEl.textContent = "Fehler: " + fehlerLoesen.message;
+        return;
+      }
+      const { error } = await client.from('meal_plan').delete().eq('id', id);
+      if (error) {
+        console.error("Fehler beim Entfernen des Termins:", error);
+        statusEl.textContent = "Liegt wieder im Froster, der Termin konnte aber nicht entfernt werden: " + error.message;
+        loadMealPlan();
+        return;
+      }
+      mealHinweis = `„${quelle.text}" liegt wieder im Froster.`;
       schliesseMealFormulare();
       loadMealPlan();
     }

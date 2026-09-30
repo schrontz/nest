@@ -81,16 +81,38 @@ function check(label, actual, expected) {
   const pasta = '#meal-plan-list .froster-zeile[data-portionen="3"]';
   await page.click(pasta + ' .froster-einplanen'); await warte(page);
   const fid = await page.$eval('#meal-plan-list .froster-ziel', e => e.closest('.froster-zeile').dataset.frosterId);
-  await page.click(`#ziel-f-${fid} [data-art=tag] button[data-datum="2026-09-30"]`);
+  await page.click(`#ziel-f-${fid} [data-art=tag] button[data-datum="2026-09-26"]`);
   await page.click(`#meal-plan-list .froster-zeile[data-froster-id="${fid}"] .froster-ziel .essen-knoepfe button`); await warte(page);
   check('Eine Portion eingeplant, zwei frei', (await fz(page, 'Pasta Hackfleisch')).map(x => !!x[1]).sort(), [false, false, true]);
   // Reihenfolge wie im Froster üblich: älteste zuerst, die eingeplante Portion war die älteste.
   check('Liste: geplante Portion eigene Zeile, Bündel mit 2', (await zeilen(page)).filter(z => z.startsWith('Pasta')),
-    ['Pasta Hackfleisch | → Mittwoch Mittag', 'Pasta Hackfleisch | 2 Portionen · seit 25.09.']);
+    ['Pasta Hackfleisch | → Samstag Mittag · heute rausnehmen', 'Pasta Hackfleisch | 2 Portionen · seit 25.09.']);
   await page.click('#meal-plan-list .froster-zeile[data-portionen="2"] .froster-weg'); await warte(page);
   check('Abhaken nimmt eine Portion', (await fz(page, 'Pasta Hackfleisch')).filter(x => x[2]).length, 1);
   check('Rest: eine Portion, ohne Portionen-Angabe', (await zeilen(page)).filter(z => z.startsWith('Pasta')),
-    ['Pasta Hackfleisch | → Mittwoch Mittag', 'Pasta Hackfleisch | seit 25.09.']);
+    ['Pasta Hackfleisch | → Samstag Mittag · heute rausnehmen', 'Pasta Hackfleisch | seit 25.09.']);
+
+  console.log('\n=== Zurück in den Froster (Fehler vom 30.09.) ===');
+  const vorher = (await page.evaluate(() => window.__db.freezer_items.length));
+  await page.click('#meal-plan-list li.essen-tag[data-datum="2026-09-26"] .essen-platz[data-mahlzeit="mittag"] .essen-eintrag'); await warte(page);
+  const sid = await page.$eval('.essen-formular input[type=text]', e => e.id.replace('meal-text-', ''));
+  await page.click('.essen-formular .rest-mehr');
+  check('Aus dem Froster: "Zurück", kein Portionen-Zähler',
+    [await page.textContent('#rest-ziel-' + sid + ' .froster-knopf'), await page.$$eval('#portionen-r-' + sid, e => e.length)],
+    ['❄ Zurück in den Froster', 0]);
+  await page.click('#rest-ziel-' + sid + ' .froster-knopf'); await warte(page);
+  check('Keine neue Portion angelegt', await page.evaluate(() => window.__db.freezer_items.length), vorher);
+  check('Termin entfernt', await page.evaluate(() => window.__db.meal_plan.filter(x => x.datum === '2026-09-26' && x.mahlzeit === 'mittag').length), 0);
+  check('Portion wieder frei', (await fz(page, 'Pasta Hackfleisch')).filter(x => !x[2]).map(x => x[1]), [null, null]);
+  check('Liste: wieder ein Bündel', (await zeilen(page)).filter(z => z.startsWith('Pasta')), ['Pasta Hackfleisch | 2 Portionen · seit 25.09.']);
+  check('Hinweis', await hinweis(page), '„Pasta Hackfleisch" liegt wieder im Froster.');
+  await page.click('#meal-plan-list li.essen-tag[data-datum="2026-09-25"] .essen-platz[data-mahlzeit="abend"] .essen-eintrag'); await warte(page);
+  const pid2 = await page.$eval('.essen-formular input[type=text]', e => e.id.replace('meal-text-', ''));
+  await page.click('.essen-formular .rest-mehr');
+  check('Frisch Gekochtes: weiter "In den Froster" mit Zähler',
+    [await page.textContent('#rest-ziel-' + pid2 + ' .froster-knopf'), await page.$$eval('#portionen-r-' + pid2, e => e.length)],
+    ['❄ In den Froster', 1]);
+  await page.click('.essen-formular .neben-knopf'); await warte(page);
 
   console.log('\n=== "+ Etwas einfrieren" ===');
   await page.click('.froster-neu-knopf button'); await warte(page);
