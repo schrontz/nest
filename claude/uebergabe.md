@@ -48,12 +48,13 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 - `li button` in `style.css` macht jeden Listen-Knopf grau: im Essensplan mit `#meal-plan-list …` überschreiben.
 - Datenbank: RLS über den Haushalt, pg_cron (Push 07:00 UTC), Edge Function `send-due-notifications` nur mit `verify_jwt: false` deployen.
 - **Essensplan:** `meal_plan` (datum, mahlzeit mittag/abend, fuer = Person oder null, rest_von), eindeutig über `UNIQUE NULLS NOT DISTINCT (household_id, datum, mahlzeit, fuer)`. Der Plan lädt nur die angezeigte Woche.
-- **Froster:** `freezer_items` (name, eingefroren_am, aufgebraucht_am, meal_plan_id → meal_plan `on delete set null`, unique). Eingeplant = verknüpft; Tag vorbei = gegessen (nur im Client berechnet, `aufgebraucht_am` bleibt leer); Termin gelöscht = wieder im Froster. `planeEin()` in `essen.js` ist der gemeinsame Weg für Reste und Froster, vergibt die UUID selbst und löst beim Ersetzen die Froster-Verknüpfung.
+- **Froster:** `freezer_items` (name, eingefroren_am, aufgebraucht_am, meal_plan_id → meal_plan `on delete set null`, unique). Eingeplant = verknüpft; Tag vorbei = gegessen (nur im Client berechnet, `aufgebraucht_am` bleibt leer); Termin gelöscht = wieder im Froster. Jede Portion ist ein eigener Eintrag; die Liste bündelt nicht eingeplante Portionen gleichen Namens vom selben Tag (`frosterZeilen`), `einfrieren()` legt N Zeilen an. `planeEin()` in `essen.js` ist der gemeinsame Weg für Reste und Froster, vergibt die UUID selbst und löst beim Ersetzen die Froster-Verknüpfung.
 - `basis.js`: `datumStr` (nie `toISOString`, UTC-Falle), `tageDerWoche`, `normKurz`/`normLang`/`trefferStelle` (Umlaute), `pflegeVorlaufTage`.
 
 ## Aktueller Stand
 
-- `main` = `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
+- `main` = `274d883` (29.09.: Froster-Portionen und „+ Etwas einfrieren“).
+- Davor `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
 - Alles nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“, Block 2, Pflanzen (echte Fotos, Silbentrennung).
 - Ältester offener Punkt: Push auf dem iPhone der Freundin.
 - Als Nächstes laut Backlog: Winter-Rhythmus der Pflege (Rest von Block 3, muss bis März stehen), danach Block 4 (Design). Zum Start fragen, was beim Handy-Test aufgefallen ist.
