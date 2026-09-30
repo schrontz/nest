@@ -1511,3 +1511,55 @@ li.plant-card.editing .plant-loeschen {
   margin-top: 0.8rem;
   color: #c0392b;
 }
+
+/* ---------- Froster: Portionen und Hinzufügen ---------- */
+.port-zeile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.port-zeile .ziel-label { flex: 1; margin: 0; }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #dde5e0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+#meal-plan-list .stepper button {
+  width: 2.4rem;
+  min-height: 2.2rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: #f1f4f2;
+  color: #2f5d6b;
+  font-size: 1.15rem;
+}
+
+#meal-plan-list .stepper button:hover { background: #e3ebe6; color: #2f5d6b; }
+
+.stepper span {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.essen-knoepfe.froster-einfrieren { margin-top: 0.5rem; }
+
+.froster-neu { margin-top: 0.6rem; }
+.froster-neu .ziel-label { display: block; }
+.froster-neu input[type="date"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.froster-neu-knopf { margin-top: 0.6rem; }
+.froster-leer { margin: 0.5rem 0 0; }

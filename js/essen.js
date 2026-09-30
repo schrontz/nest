@@ -27,6 +27,8 @@
     let frosterPlan = {};           // meal_plan_id -> { datum, mahlzeit, fuer }
     let frosterOffen = false;       // Froster-Zeile aufgeklappt?
     let einplanenFrosterId = null;  // Froster-Eintrag, dessen Einplanen offen ist
+    let frosterNeuOffen = false;    // Formular "+ Etwas einfrieren" offen?
+    const PORTIONEN_MAX = 10;
     const FROSTER_ALT_TAGE = 90;    // ab hier wird "seit …" farbig
 
     const MAHLZEITEN = ['mittag', 'abend'];
@@ -72,6 +74,7 @@
       neuerMealPlatz = null;
       zutatenFuerMealId = null;
       einplanenFrosterId = null;
+      frosterNeuOffen = false;
     }
 
     // --- Anzeige -----------------------------------------------------------
@@ -225,7 +228,10 @@
             ${zielAuswahl('r-' + id, tagDanach(eintrag.datum))}
             <div class="essen-knoepfe">
               <button type="button" onclick="restNachZiel('${id}')">Übertragen</button>
-              <button type="button" class="froster-knopf" onclick="inDenFroster('${id}')">❄ In den Froster</button>
+            </div>
+            ${portionenWahl('r-' + id)}
+            <div class="essen-knoepfe froster-einfrieren">
+              <button type="button" class="froster-knopf" data-portionen-knopf="r-${id}" onclick="inDenFroster('${id}')">❄ In den Froster</button>
             </div>
           </div>` : ''}
           <p id="meal-status-${id}" class="store-address"></p>
@@ -749,20 +755,136 @@
         .filter(x => x.t && x.t.datum === morgen);
     }
 
+    // Jede Portion ist ein eigener Eintrag (so bleibt "ein Eintrag gehört zu
+    // höchstens einem Termin"). In der Liste werden nicht eingeplante
+    // Portionen desselben Gerichts vom selben Tag zu einer Zeile gebündelt;
+    // Einplanen und Abhaken wirken dort auf eine Portion, die älteste.
+    function frosterZeilen(inhalt) {
+      const zeilen = [];
+      const buendel = new Map();
+      inhalt.forEach(f => {
+        if (frosterTermin(f)) { zeilen.push({ f, anzahl: 1 }); return; }
+        const schluessel = normKurz(f.name) + '|' + f.eingefroren_am;
+        const vorhanden = buendel.get(schluessel);
+        if (vorhanden) { vorhanden.anzahl++; return; }
+        const zeile = { f, anzahl: 1 };
+        buendel.set(schluessel, zeile);
+        zeilen.push(zeile);
+      });
+      return zeilen;
+    }
+
+    // Die Zeile steht immer da, auch bei leerem Froster -- sonst käme man
+    // nicht an "+ Etwas einfrieren".
     function renderFroster() {
       const inhalt = frosterInhalt();
-      if (!inhalt.length) return '';
-      const zeilen = frosterOffen ? inhalt.map(renderFrosterZeile).join('') : '';
+      let innen = '';
+      if (frosterOffen) {
+        innen = frosterZeilen(inhalt).map(z => renderFrosterZeile(z.f, z.anzahl)).join('')
+          + (inhalt.length ? '' : '<p class="store-address froster-leer">Noch nichts eingefroren.</p>')
+          + renderFrosterNeu();
+      }
       return `
         <li class="froster-box">
           <button type="button" class="froster-kopf" onclick="toggleFroster()" aria-expanded="${frosterOffen}">
             <span>❄ Im Froster (${inhalt.length})</span><span aria-hidden="true">${frosterOffen ? '▴' : '▾'}</span>
           </button>
-          ${zeilen}
+          ${innen}
         </li>`;
     }
 
-    function renderFrosterZeile(f) {
+    function renderFrosterNeu() {
+      if (!frosterNeuOffen) {
+        return `<div class="essen-knoepfe froster-neu-knopf">
+          <button type="button" class="froster-knopf" onclick="startFrosterNeu()">+ Etwas einfrieren</button></div>`;
+      }
+      const heute = datumStr(new Date());
+      return `
+        <div class="essen-formular froster-neu">
+          <div class="ziel-label">Neu im Froster</div>
+          <input type="text" id="froster-neu-name" placeholder="z. B. Gemüsebrühe" autocomplete="off"
+                 onkeydown="if (event.key === 'Enter') frosterHinzufuegen()">
+          <label class="ziel-label" for="froster-neu-datum">Eingefroren am</label>
+          <input type="date" id="froster-neu-datum" class="froster-datum" value="${heute}" max="${heute}">
+          ${portionenWahl('neu')}
+          <div class="essen-knoepfe">
+            <button type="button" onclick="frosterHinzufuegen()">Speichern</button>
+            <button type="button" class="neben-knopf" onclick="cancelEditMeal()">Abbrechen</button>
+          </div>
+          <p id="froster-neu-status" class="store-address"></p>
+        </div>`;
+    }
+
+    function startFrosterNeu() {
+      schliesseMealFormulare();
+      frosterNeuOffen = true;
+      renderMealPlan();
+      const feld = document.getElementById('froster-neu-name');
+      if (feld) feld.focus();
+    }
+
+    // "Portionen − 1 +". Die Zahl steht in data-anzahl; ein Knopf mit
+    // data-portionen-knopf gleichen Schlüssels zeigt sie mit an.
+    function portionenWahl(key) {
+      return `
+        <div class="port-zeile">
+          <div class="ziel-label">Portionen</div>
+          <div class="stepper" id="portionen-${key}" data-anzahl="1">
+            <button type="button" onclick="aenderePortionen('${key}', -1)" aria-label="Eine Portion weniger">−</button>
+            <span aria-live="polite">1</span>
+            <button type="button" onclick="aenderePortionen('${key}', 1)" aria-label="Eine Portion mehr">+</button>
+          </div>
+        </div>`;
+    }
+
+    function aenderePortionen(key, delta) {
+      const el = document.getElementById('portionen-' + key);
+      if (!el) return;
+      const n = Math.min(PORTIONEN_MAX, Math.max(1, Number(el.dataset.anzahl) + delta));
+      el.dataset.anzahl = n;
+      el.querySelector('span').textContent = n;
+      const knopf = document.querySelector(`[data-portionen-knopf="${key}"]`);
+      if (knopf) knopf.textContent = n === 1 ? '❄ In den Froster' : `❄ ${n} Portionen in den Froster`;
+    }
+
+    function gewaehltePortionen(key) {
+      const el = document.getElementById('portionen-' + key);
+      return el ? Math.min(PORTIONEN_MAX, Math.max(1, Number(el.dataset.anzahl) || 1)) : 1;
+    }
+
+    // Legt je Portion einen Eintrag an. Gibt den Fehler zurück oder null.
+    async function einfrieren(name, datum, anzahl) {
+      const { data: { user } } = await client.auth.getUser();
+      const zeilen = Array.from({ length: anzahl }, () => ({
+        household_id: currentHouseholdId,
+        name: name,
+        eingefroren_am: datum,
+        created_by: user.id
+      }));
+      const { error } = await client.from('freezer_items').insert(zeilen);
+      if (error) console.error("Fehler beim Einfrieren:", error);
+      return error || null;
+    }
+
+    function portionenText(anzahl) {
+      return anzahl === 1 ? '' : ` (${anzahl} Portionen)`;
+    }
+
+    async function frosterHinzufuegen() {
+      const name = (document.getElementById('froster-neu-name').value || '').trim();
+      const datum = document.getElementById('froster-neu-datum').value || datumStr(new Date());
+      const statusEl = document.getElementById('froster-neu-status');
+      if (!name) { statusEl.textContent = 'Bitte einen Namen eingeben.'; return; }
+      if (datum > datumStr(new Date())) { statusEl.textContent = 'Das Datum liegt in der Zukunft.'; return; }
+      const anzahl = gewaehltePortionen('neu');
+      const error = await einfrieren(name, datum, anzahl);
+      if (error) { statusEl.textContent = "Fehler: " + error.message; return; }
+      mealHinweis = `„${name}"${portionenText(anzahl)} liegt jetzt im Froster.`;
+      schliesseMealFormulare();
+      loadFreezer();
+    }
+
+    function renderFrosterZeile(f, anzahl = 1) {
       const t = frosterTermin(f);
       let info;
       if (t) {
@@ -771,7 +893,8 @@
         info = `<small class="froster-geplant">→ ${escapeHtml(zielName(t.datum, t.mahlzeit))}${zusatz}</small>`;
       } else {
         const alt = -tageBis(f.eingefroren_am) >= FROSTER_ALT_TAGE;
-        info = `<small class="${alt ? 'froster-alt' : ''}">seit ${kurzDatum(f.eingefroren_am)}</small>`;
+        const portionen = anzahl > 1 ? `${anzahl} Portionen · ` : '';
+        info = `<small class="${alt ? 'froster-alt' : ''}">${portionen}seit ${kurzDatum(f.eingefroren_am)}</small>`;
       }
       const einplanen = !t
         ? `<button type="button" class="froster-einplanen${einplanenFrosterId === f.id ? ' an' : ''}" onclick="startFrosterEinplanen('${f.id}')">Einplanen</button>` : '';
@@ -785,7 +908,7 @@
           <p id="froster-status-${f.id}" class="store-address"></p>
         </div>` : '';
       return `
-        <div class="froster-zeile" data-froster-id="${f.id}">
+        <div class="froster-zeile" data-froster-id="${f.id}" data-portionen="${anzahl}">
           <div class="froster-name">${escapeHtml(f.name)}</div>
           <div class="froster-unten">
             ${info}
@@ -835,19 +958,13 @@
       const quelle = mealPlan.find(e => e.id === id);
       if (!quelle) return;
       const statusEl = document.getElementById('meal-status-' + id);
-      const { data: { user } } = await client.auth.getUser();
-      const { error } = await client.from('freezer_items').insert({
-        household_id: currentHouseholdId,
-        name: quelle.text,
-        eingefroren_am: datumStr(new Date()),
-        created_by: user.id
-      });
+      const anzahl = gewaehltePortionen('r-' + id);
+      const error = await einfrieren(quelle.text, datumStr(new Date()), anzahl);
       if (error) {
-        console.error("Fehler beim Einfrieren:", error);
         statusEl.textContent = "Fehler: " + error.message;
         return;
       }
-      mealHinweis = `„${quelle.text}" liegt jetzt im Froster.`;
+      mealHinweis = `„${quelle.text}"${portionenText(anzahl)} liegt jetzt im Froster.`;
       schliesseMealFormulare();
       loadMealPlan();
     }
