@@ -53,7 +53,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 ## Aktueller Stand
 
-- `main` = `274d883` (29.09.: Froster-Portionen und „+ Etwas einfrieren“).
+- `main` = `bc51dba` (30.09.: „Zurück in den Froster“ für eingeplante Portionen), davor `274d883` (29.09.: Froster-Portionen und „+ Etwas einfrieren“, auf dem Handy bestätigt).
 - Davor `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
 - Alles nur im Browser getestet. Auf dem Handy offen: Foto-Fix, Vorschläge über der Tastatur, Froster samt Banner bei beiden, Datumsauswahl hinter „…“, Block 2, Pflanzen (echte Fotos, Silbentrennung).
 - Ältester offener Punkt: Push auf dem iPhone der Freundin.
@@ -65,4 +65,5 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 - Kosten- und Tarif-Aussagen vorher prüfen.
 - Fehlschläge in den Suiten gegen den alten Code gegenprüfen, bevor man sie dem eigenen Code zuschreibt (so wurde das ERR_NAME-Rauschen erkannt).
 - Zahlen, mit denen ich argumentiere, live nachsehen statt schätzen: „etwa ein Dutzend“ Gekaufte waren in Wahrheit 70.
+- Aktionen auch nacheinander auf demselben Objekt testen, nicht nur einzeln: „einplanen, dann in den Froster“ ergab am 30.09. eine Portion zu viel.
 - Mockup-Varianten wirklich auf 320 px ausprobieren: Der Froster-Hinweis in der Kachel sah im Kopf gut aus und war abgeschnitten.
