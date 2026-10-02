@@ -168,6 +168,8 @@
       // choreViewFilter ist ein let aus aufgaben.js -- typeof wirft auch dann
       // nicht, wenn die Datei fehlt.
       if (typeof choreViewFilter !== 'undefined') versuche('setChoreView', choreViewFilter);
+      // Zutaten, die Skillet per Link mitgeschickt hat, ins Feld "mehrere auf einmal"
+      versuche('uebernimmSkilletEinkauf');
     }
 
     // showApp() läuft bei jedem Auth-Event erneut (auch beim stündlichen

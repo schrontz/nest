@@ -38,7 +38,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 ## Technik: das Wichtigste
 
-- Kein Build-Schritt. `index.html`, `style.css`, `sw.js` (nur Push). Klassische Skripte in `js/`, Reihenfolge: basis, bilder, auth, haushalt, liste, aufgaben, pflanzen, essen, start, push, app. Top-Level-`let`/`const` sind skriptübergreifend global: keine Namen doppelt vergeben.
+- Kein Build-Schritt. `index.html`, `style.css`, `sw.js` (nur Push). Klassische Skripte in `js/`, Reihenfolge: basis, bilder, auth, haushalt, liste, aufgaben, pflanzen, essen, start, push, skillet, app. Top-Level-`let`/`const` sind skriptübergreifend global: keine Namen doppelt vergeben.
 - `versuche(name, …)` in `app.js`: eine fehlende Datei lässt nur ihren Teil ausfallen. Keine Abhängigkeiten zwischen Bereichsdateien (eigene Konstanten statt fremder).
 - `basis.js` hat `AUSBLENDEN_NACH_TAGEN` (7): Gekauftes und erledigte Aufgaben werden danach nur ausgeblendet, nie gelöscht, weil die Vorschläge beim Tippen von der Historie leben. `shopping_items.gekauft_am` setzt ein Trigger.
 - Aufgaben-Kachel zählt nur Überfälliges, Heutiges und was im Vorlauf liegt (`istInnerhalbVorlauf`); ohne Termin zählt nicht.
@@ -49,6 +49,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 - Datenbank: RLS über den Haushalt, pg_cron (Push 07:00 UTC), Edge Function `send-due-notifications` nur mit `verify_jwt: false` deployen.
 - **Essensplan:** `meal_plan` (datum, mahlzeit mittag/abend, fuer = Person oder null, rest_von), eindeutig über `UNIQUE NULLS NOT DISTINCT (household_id, datum, mahlzeit, fuer)`. Der Plan lädt nur die angezeigte Woche.
 - **Froster:** `freezer_items` (name, eingefroren_am, aufgebraucht_am, meal_plan_id → meal_plan `on delete set null`, unique). Eingeplant = verknüpft; Tag vorbei = gegessen (nur im Client berechnet, `aufgebraucht_am` bleibt leer); Termin gelöscht = wieder im Froster. Jede Portion ist ein eigener Eintrag; die Liste bündelt nicht eingeplante Portionen gleichen Namens vom selben Tag (`frosterZeilen`), `einfrieren()` legt N Zeilen an. `planeEin()` in `essen.js` ist der gemeinsame Weg für Reste und Froster, vergibt die UUID selbst und löst beim Ersetzen die Froster-Verknüpfung.
+- **Übergabe aus Skillet** (`skillet.js`): Link `?einkauf=<Zeilen>&rezept=<Titel>` wird beim Laden in `localStorage` (`nest_skillet_einkauf`, 12 h gültig) gemerkt und aus der Adresszeile entfernt; `showApp()` ruft danach `uebernimmSkilletEinkauf()` auf, das „mehrere auf einmal“ befüllt. Eingetragen wird erst beim Tippen auf „Auf die Liste“. Skillet hat keinen Zugriff auf Nests Datenbank.
 - `basis.js`: `datumStr` (nie `toISOString`, UTC-Falle), `tageDerWoche`, `normKurz`/`normLang`/`trefferStelle` (Umlaute), `pflegeVorlaufTage`.
 
 ## Aktueller Stand
