@@ -135,48 +135,8 @@
 
     <div id="tab-liste" class="tab-panel" style="display:none;">
       <div class="add-card">
-        <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="toggleAddForm()">+ Artikel hinzufügen</button>
-        <div id="add-form" style="display:none;">
-          <div class="vorschlag-feld">
-            <input type="text" id="item-name" placeholder="Name (z.B. Äpfel)" autocomplete="off"
-                   oninput="zeigeVorschlaege()" onfocus="zeigeVorschlaege()"
-                   onblur="versteckeVorschlaegeVerzoegert()" onkeydown="vorschlagTaste(event)">
-            <ul id="item-name-vorschlaege" class="vorschlaege" style="display:none;"></ul>
-          </div>
-          <input type="number" id="item-menge" placeholder="Menge" step="0.1">
-          <select id="item-einheit">
-            <option value="stueck">Stück</option>
-            <option value="gramm">Gramm</option>
-            <option value="kilogramm">Kilogramm</option>
-            <option value="liter">Liter</option>
-            <option value="milliliter">Milliliter</option>
-            <option value="packung">Packung</option>
-            <option value="dose">Dose</option>
-            <option value="bund">Bund</option>
-            <option value="glas">Glas</option>
-            <option value="flasche">Flasche</option>
-            <option value="becher">Becher</option>
-          </select>
-          <select id="item-store">
-            <option value="">– kein Laden –</option>
-          </select>
-          <select id="item-department">
-            <option value="">– keine Abteilung –</option>
-          </select>
-          <select id="item-priority">
-            <option value="normal" selected>Normal</option>
-            <option value="wichtig">Wichtig</option>
-            <option value="dringend">Dringend</option>
-          </select>
-          <button onclick="addItem()">Hinzufügen</button>
-          <button type="button" id="toggle-mehrere-link" class="link-knopf" onclick="toggleMehrereForm()">mehrere auf einmal</button>
-          <div id="mehrere-form" style="display:none;">
-            <textarea id="mehrere-text" rows="5" placeholder="Eine Zutat je Zeile:&#10;2 Zwiebeln&#10;500 g Mehl&#10;Olivenöl"></textarea>
-            <button onclick="mehrereHinzufuegen('mehrere-text', 'mehrere-status')">Auf die Liste</button>
-            <p id="mehrere-status" class="store-address"></p>
-          </div>
-          <p id="add-status"></p>
-        </div>
+        <button type="button" id="toggle-add-link" class="add-toggle-card" onclick="oeffneArtikelKarte()">+ Artikel hinzufügen</button>
+        <p id="liste-status" class="store-address"></p>
       </div>
 
       <h2>Einkaufsliste</h2>
@@ -187,6 +147,77 @@
       </p>
       <ul id="item-list-gekauft" style="display:none;"></ul>
       <p id="gekauft-ausgeblendet" class="store-address" style="display:none;"></p>
+    </div>
+
+    <!-- Karten-Ansicht: ein Artikel nach dem anderen. Einzeln über "+ Artikel
+         hinzufügen", als Stapel aus Skillet und dem Essensplan. Logik: artikel.js -->
+    <div id="tab-artikel" class="tab-panel" style="display:none;">
+      <div id="karte-stapel-kopf" style="display:none;">
+        <p id="karte-unterzeile" class="karte-unterzeile"></p>
+        <div id="karte-punkte" class="karte-punkte"></div>
+      </div>
+
+      <div id="add-form" class="karte">
+        <div id="karte-doppelt" class="karte-doppelt" style="display:none;"></div>
+
+        <label class="feld-label" for="item-name">Name</label>
+        <div class="vorschlag-feld">
+          <input type="text" id="item-name" placeholder="z.B. Äpfel" autocomplete="off"
+                 oninput="zeigeVorschlaege(); karteGeaendert()" onfocus="zeigeVorschlaege()"
+                 onblur="versteckeVorschlaegeVerzoegert()" onkeydown="vorschlagTaste(event)">
+          <ul id="item-name-vorschlaege" class="vorschlaege" style="display:none;"></ul>
+        </div>
+        <div class="karte-zwei">
+          <div>
+            <label class="feld-label" for="item-menge">Menge</label>
+            <input type="number" id="item-menge" placeholder="Menge" step="0.1" oninput="karteGeaendert()">
+          </div>
+          <div>
+            <label class="feld-label" for="item-einheit">Einheit</label>
+            <select id="item-einheit" onchange="karteGeaendert()">
+              <option value="stueck">Stück</option>
+              <option value="gramm">Gramm</option>
+              <option value="kilogramm">Kilogramm</option>
+              <option value="liter">Liter</option>
+              <option value="milliliter">Milliliter</option>
+              <option value="packung">Packung</option>
+              <option value="dose">Dose</option>
+              <option value="bund">Bund</option>
+              <option value="glas">Glas</option>
+              <option value="flasche">Flasche</option>
+              <option value="becher">Becher</option>
+            </select>
+          </div>
+        </div>
+        <label class="feld-label karte-label" for="item-store">Laden <span id="hinweis-laden" class="karte-hinweis"></span></label>
+        <select id="item-store" onchange="karteFeldGeaendert('laden')">
+          <option value="">– kein Laden –</option>
+        </select>
+        <label id="karte-laden-alle-zeile" class="karte-haken" style="display:none;">
+          <input type="checkbox" id="karte-laden-alle" onchange="ladenFuerAlleGeaendert()"> Diesen Laden für alle weiteren Zutaten
+        </label>
+        <label class="feld-label karte-label" for="item-department">Abteilung <span id="hinweis-abteilung" class="karte-hinweis"></span></label>
+        <select id="item-department" onchange="karteFeldGeaendert('abteilung')">
+          <option value="">– keine Abteilung –</option>
+        </select>
+        <span class="feld-label">Wichtigkeit</span>
+        <input type="hidden" id="item-priority" value="normal">
+        <div class="karte-pillen" role="group" aria-label="Wichtigkeit">
+          <button type="button" class="karte-pille aktiv" data-wert="normal" onclick="setzePrioritaet('normal')">Normal</button>
+          <button type="button" class="karte-pille" data-wert="wichtig" onclick="setzePrioritaet('wichtig')">Wichtig</button>
+          <button type="button" class="karte-pille" data-wert="dringend" onclick="setzePrioritaet('dringend')">Dringend</button>
+        </div>
+        <button type="button" id="artikel-speichern" class="karte-knopf" onclick="karteHauptknopf()">Speichern</button>
+        <button type="button" id="artikel-zweit" class="karte-knopf-umriss" onclick="karteZweitknopf()">Speichern &amp; nächster</button>
+        <div class="karte-zentriert"><button type="button" id="karte-rest" class="link-knopf" style="display:none;" onclick="restSoUebernehmen()"></button></div>
+        <p id="add-status"></p>
+      </div>
+
+      <div id="karte-zusammenfassung" class="karte" style="display:none;">
+        <b id="karte-zusammenfassung-titel"></b>
+        <ul id="karte-zusammenfassung-liste"></ul>
+        <button type="button" class="karte-knopf" onclick="karteSchliessen()">Fertig</button>
+      </div>
     </div>
 
     <div id="tab-aufgaben" class="tab-panel" style="display:none;">
@@ -373,6 +404,7 @@
   <script src="js/auth.js"></script>
   <script src="js/haushalt.js"></script>
   <script src="js/liste.js"></script>
+  <script src="js/artikel.js"></script>
   <script src="js/aufgaben.js"></script>
   <script src="js/pflanzen.js"></script>
   <script src="js/essen.js"></script>

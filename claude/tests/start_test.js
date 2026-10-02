@@ -204,15 +204,15 @@ async function neueSeite(browser, opts = {}) {
   await page.click('#zurueck-btn'); await page.waitForTimeout(250);
 
   console.log('\n=== Kacheln ziehen live nach ===');
-  // Über den echten Weg in liste.js: addItem() ruft intern loadItems() auf.
+  // Über den echten Weg (Karte in artikel.js), der intern loadItems() aufruft.
   // Das beweist, dass die Hülle aus start.js auch Aufrufe innerhalb der
   // anderen Dateien erreicht.
   await page.evaluate(() => { showTab('liste'); });
   await page.waitForTimeout(150);
   await page.click('#toggle-add-link'); await page.waitForTimeout(100);
   await page.fill('#item-name', 'Klopapier');
-  await page.selectOption('#item-priority', 'dringend');
-  await page.click('#add-form > button:not(.link-knopf)');
+  await page.click('.karte-pille[data-wert="dringend"]');
+  await page.click('#artikel-speichern');
   await page.waitForTimeout(400);
   await page.click('#zurueck-btn'); await page.waitForTimeout(250);
   check('Neuer dringender Artikel erscheint sofort auf der Kachel', await kachel(page,'liste'),

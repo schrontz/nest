@@ -250,10 +250,21 @@ function check(label, actual, expected) {
   await page.fill('#' + zId, '500 g Hackfleisch\n2 Zwiebeln\nOlivenöl');
   await page.click(platz(4,'abend') + ' .essen-knoepfe button:nth-child(1)');
   await page.waitForTimeout(350);
-  check('Zutaten auf der Liste, Olivenöl übersprungen',
-    await page.textContent('#' + zId.replace('zutaten-', 'zutaten-status-')), '2 Artikel hinzugefügt, 1 stand schon auf der Liste.');
+  // Seit Okt. 2026: "Auf die Liste" öffnet die Karten (artikel.js)
+  check('Karten öffnen sich mit Gericht und Zähler',
+    [await page.textContent('#bereich-titel'), await page.textContent('#karte-unterzeile')],
+    ['Aus dem Essensplan', 'Pasta Hackfleisch · Zutat 1 von 3']);
+  await page.click('#karte-rest');
+  await page.waitForTimeout(400);
+  check('Zusammenfassung: Olivenöl stand schon drauf',
+    await page.$$eval('#karte-zusammenfassung-liste li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim())),
+    ['Hackfleisch – 500 g neu', 'Zwiebeln – 2 Stück neu', 'Olivenöl stand schon drauf']);
   const neu = await page.evaluate(() => window.__db.shopping_items.filter(i => i.id.startsWith('n')).map(i => [i.name, i.menge, i.einheit, i.store_id]));
   check('Menge, Einheit und Laden vom letzten Mal', neu, [['Hackfleisch', 500, 'gramm', null], ['Zwiebeln', 2, 'stueck', 's1']]);
+  await page.click('#karte-zusammenfassung button');
+  await page.waitForTimeout(300);
+  check('"Fertig" führt zurück in den Essensplan, Zutatenfeld geleert',
+    [await page.isVisible('#tab-essen'), await page.inputValue('#' + zId)], [true, '']);
 
   // ------------------------------------------------------------------
   console.log('\n=== Mehrere Artikel direkt in der Liste (Bestand) ===');

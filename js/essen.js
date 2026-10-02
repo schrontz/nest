@@ -250,7 +250,7 @@
           <textarea id="zutaten-${eintrag.id}" rows="5" placeholder="Eine Zutat je Zeile:&#10;2 Zwiebeln&#10;500 g Mehl&#10;Olivenöl"></textarea>
           <p id="zutaten-status-${eintrag.id}" class="store-address"></p>
           <div class="essen-knoepfe">
-            <button type="button" onclick="mehrereHinzufuegen('zutaten-${eintrag.id}', 'zutaten-status-${eintrag.id}')">Auf die Liste</button>
+            <button type="button" onclick="zutatenAufDieListe('${eintrag.id}')">Auf die Liste</button>
             <button type="button" class="neben-knopf" onclick="cancelEditMeal()">Fertig</button>
           </div>
         </div>
@@ -258,6 +258,18 @@
     }
 
     // --- Bedienung ---------------------------------------------------------
+
+    // Zutaten eines Gerichts über die Karten in Einkaufen übernehmen (artikel.js):
+    // je Zutat prüfen, Laden/Abteilung/Wichtigkeit wählen, Doppeltes erhöhen.
+    function zutatenAufDieListe(id) {
+      const feld = document.getElementById('zutaten-' + id);
+      const statusEl = document.getElementById('zutaten-status-' + id);
+      const eintrag = mealPlan.find(m => m.id === id);
+      const gestartet = versuche('starteKartenStapel', feld ? feld.value : '', {
+        herkunft: 'essen', titel: eintrag ? eintrag.text : '', feldId: 'zutaten-' + id
+      });
+      if (!gestartet && statusEl) statusEl.textContent = 'Nichts einzutragen.';
+    }
 
     function fokus(id) {
       const feld = document.getElementById(id);

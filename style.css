@@ -1563,3 +1563,53 @@ li.plant-card.editing .plant-loeschen {
 
 .froster-neu-knopf { margin-top: 0.6rem; }
 .froster-leer { margin: 0.5rem 0 0; }
+
+/* ---- Karten-Ansicht "Artikel hinzufügen" (artikel.js) ---- */
+.karte {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1rem 0.9rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.karte .feld-label { margin-top: 0.55rem; font-weight: 600; }
+.karte .feld-label:first-of-type { margin-top: 0; }
+.karte-label { display: flex; justify-content: space-between; align-items: baseline; }
+.karte-hinweis { font-weight: 400; font-style: italic; }
+.karte-zwei { display: grid; grid-template-columns: 1fr 1.3fr; gap: 0.5rem; }
+.karte-zwei input, .karte-zwei select { margin-bottom: 0; }
+.karte-pillen { display: flex; gap: 0.4rem; }
+.karte-pille {
+  flex: 1;
+  padding: 0.5rem 0;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1.5px solid #d3ddd8;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.karte-pille:hover { background: #f0f5f2; }
+.karte-pille.aktiv { background: var(--color-secondary); border-color: var(--color-secondary); color: white; }
+.karte-knopf { display: block; width: 100%; margin-top: 1rem; }
+.karte-knopf-umriss {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  background: none;
+  border: 2px solid var(--color-secondary);
+  color: var(--color-secondary-dark);
+}
+.karte-knopf-umriss:hover { background: #f0f5f2; }
+.karte-zentriert { text-align: center; margin-top: 0.6rem; }
+.karte-haken { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; margin: 0.1rem 0 0.2rem; }
+.karte-haken input { width: auto; margin: 0; }
+.karte-doppelt { background: #fff6e0; border-radius: 10px; padding: 0.6rem 0.7rem; margin-bottom: 0.8rem; font-size: 0.88rem; }
+.karte-doppelt b { display: block; margin-bottom: 0.2rem; }
+.karte-unterzeile { color: var(--color-secondary-dark); font-size: 0.88rem; margin: 0 0 0.5rem; }
+.karte-punkte { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 0.8rem 0.1rem; }
+.karte-punkt { width: 9px; height: 9px; border-radius: 50%; background: rgba(0, 0, 0, 0.12); }
+.karte-punkt.erledigt { background: var(--color-secondary); }
+.karte-punkt.jetzt { background: var(--color-secondary-dark); transform: scale(1.3); }
+#karte-zusammenfassung-liste { margin-top: 0.7rem; }
+#karte-zusammenfassung-liste .karte-status { margin-left: auto; color: var(--color-muted); font-size: 0.85rem; }
+#karte-zusammenfassung-liste li.uebersprungen { opacity: 0.55; }

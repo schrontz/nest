@@ -126,7 +126,7 @@ const titel = page => page.$$eval('#item-name-vorschlaege li button',
   console.log('\n=== Übernahme der letzten Werte ===');
   await page.fill('#item-name', 'moz');
   await page.waitForTimeout(200);
-  await page.selectOption('#item-priority', 'dringend');
+  await page.click('.karte-pille[data-wert="dringend"]');
   await page.click('#item-name-vorschlaege li:nth-child(1) button');
   await page.waitForTimeout(250);
   const felder = await page.evaluate(() => ({
@@ -166,7 +166,7 @@ const titel = page => page.$$eval('#item-name-vorschlaege li button',
   await page.waitForTimeout(200);
   await page.click('#item-name-vorschlaege li:nth-child(1) button');
   await page.waitForTimeout(200);
-  await page.click('#add-form button:not([onmousedown])');
+  await page.click('#artikel-speichern');
   await page.waitForTimeout(400);
   const calls = await page.evaluate(() => window.__calls);
   if (!check('Angelegt wird mit den übernommenen Werten',
@@ -179,6 +179,10 @@ const titel = page => page.$$eval('#item-name-vorschlaege li button',
   const ueber = await page.evaluate(() => ({ s: document.body.scrollWidth, c: document.body.clientWidth }));
   if (!check('Kein horizontaler Überlauf', ueber.s <= ueber.c, true)) failures++;
 
+  // "Speichern" schließt die Karte (artikel.js) -- für das Bild wieder öffnen
+  if (!check('Speichern führt zurück zur Einkaufsliste', await page.isVisible('#tab-liste'), true)) failures++;
+  await page.click('#toggle-add-link');
+  await page.waitForTimeout(200);
   await page.fill('#item-name', 'moz');
   await page.waitForTimeout(300);
   await page.screenshot({ path: '/tmp/vorschlag_mobil.png' });

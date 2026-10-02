@@ -42,7 +42,8 @@
     // angetippt wurde. Der Essensplan hat keine eigenen Einstellungen und
     // landet deshalb wie der Start bei "Mein Konto".
     const EINSTELLUNGEN_JE_HERKUNFT = {
-      start: 'konto', liste: 'einkaufsliste', aufgaben: 'zimmer', pflanzen: 'zimmer', essen: null
+      start: 'konto', liste: 'einkaufsliste', aufgaben: 'zimmer', pflanzen: 'zimmer', essen: null,
+      artikel: 'einkaufsliste'
     };
 
     // Die zuletzt gezeigte Ansicht ausser den Einstellungen: 'start' oder ein
@@ -50,15 +51,22 @@
     let aktuelleAnsicht = 'start';
 
     function zeigeAnsicht(ansicht) {
+      // Die Karten-Ansicht (artikel.js) liegt eine Ebene über einem Bereich.
+      // Ohne offene Karte (z.B. nach Neuladen und Vorwärts-Taste) gibt es dort
+      // nichts zu zeigen -- dann die Einkaufsliste.
+      if (ansicht === 'artikel' && !versuche('karteAktiv')) ansicht = 'liste';
+      const istKarte = ansicht === 'artikel';
       const istBereich = TAB_IDS.includes(ansicht);
       document.getElementById('start-view').style.display = ansicht === 'start' ? 'flex' : 'none';
-      document.getElementById('bereich-kopf').style.display = istBereich ? 'flex' : 'none';
+      document.getElementById('bereich-kopf').style.display = (istBereich || istKarte) ? 'flex' : 'none';
+      document.getElementById('tab-artikel').style.display = istKarte ? 'block' : 'none';
       TAB_IDS.forEach(id => {
         document.getElementById('tab-' + id).style.display = id === ansicht ? 'block' : 'none';
       });
       document.getElementById('tab-einstellungen').style.display = ansicht === 'einstellungen' ? 'block' : 'none';
 
       if (istBereich) document.getElementById('bereich-titel').textContent = BEREICH_TITEL[ansicht];
+      if (istKarte) document.getElementById('bereich-titel').textContent = versuche('karteTitel') || 'Neuer Artikel';
       if (ansicht !== 'einstellungen') aktuelleAnsicht = ansicht;
       if (ansicht === 'start') versuche('beimStartZeigen');
       // Wer den Bereich neu betritt, landet in der Übersicht, nicht in der
@@ -168,7 +176,7 @@
       // choreViewFilter ist ein let aus aufgaben.js -- typeof wirft auch dann
       // nicht, wenn die Datei fehlt.
       if (typeof choreViewFilter !== 'undefined') versuche('setChoreView', choreViewFilter);
-      // Zutaten, die Skillet per Link mitgeschickt hat, ins Feld "mehrere auf einmal"
+      // Zutaten, die Skillet per Link mitgeschickt hat, als Karten öffnen
       versuche('uebernimmSkilletEinkauf');
     }
 
