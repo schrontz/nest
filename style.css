@@ -1564,7 +1564,35 @@ li.plant-card.editing .plant-loeschen {
 .froster-neu-knopf { margin-top: 0.6rem; }
 .froster-leer { margin: 0.5rem 0 0; }
 
-/* ---- Karten-Ansicht "Artikel hinzufügen" (artikel.js) ---- */
+/* ---- Karte "Neuer Artikel" (artikel.js): schwebt über dem Bereich ---- */
+.karte-ueberlagerung {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Oben verankert statt mittig: so schiebt die Handy-Tastatur nichts aus dem Bild */
+  padding: max(3.5rem, calc(env(safe-area-inset-top) + 1rem)) 0.75rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: rgba(38, 51, 58, 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.karte-schwebend {
+  max-width: 480px;
+  margin: 0 auto;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+body.karte-offen { overflow: hidden; }
+.karte-kopf { display: flex; align-items: center; gap: 0.5rem; margin: -0.2rem 0 0.5rem; }
+.karte-kopf h3 {
+  flex: 1; margin: 0; font-size: 1.1rem; text-transform: none; letter-spacing: 0;
+  color: var(--color-secondary-dark);
+}
+.karte-zu { background: none; color: var(--color-muted); font-size: 1.25rem; line-height: 1; padding: 0.3rem 0.5rem; }
+.karte-zu:hover { background: rgba(0, 0, 0, 0.06); }
+#add-status:empty { display: none; }
+#add-status { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--color-secondary-dark); }
 .karte {
   background: var(--color-surface);
   border-radius: 12px;
@@ -1605,8 +1633,8 @@ li.plant-card.editing .plant-loeschen {
 .karte-haken input { width: auto; margin: 0; }
 .karte-doppelt { background: #fff6e0; border-radius: 10px; padding: 0.6rem 0.7rem; margin-bottom: 0.8rem; font-size: 0.88rem; }
 .karte-doppelt b { display: block; margin-bottom: 0.2rem; }
-.karte-unterzeile { color: var(--color-secondary-dark); font-size: 0.88rem; margin: 0 0 0.5rem; }
-.karte-punkte { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 0.8rem 0.1rem; }
+.karte-unterzeile { color: var(--color-secondary-dark); font-size: 0.88rem; margin: -0.2rem 0 0.4rem; }
+.karte-punkte { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 0.7rem 0.1rem; }
 .karte-punkt { width: 9px; height: 9px; border-radius: 50%; background: rgba(0, 0, 0, 0.12); }
 .karte-punkt.erledigt { background: var(--color-secondary); }
 .karte-punkt.jetzt { background: var(--color-secondary-dark); transform: scale(1.3); }

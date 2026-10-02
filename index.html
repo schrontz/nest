@@ -149,15 +149,21 @@
       <p id="gekauft-ausgeblendet" class="store-address" style="display:none;"></p>
     </div>
 
-    <!-- Karten-Ansicht: ein Artikel nach dem anderen. Einzeln über "+ Artikel
-         hinzufügen", als Stapel aus Skillet und dem Essensplan. Logik: artikel.js -->
-    <div id="tab-artikel" class="tab-panel" style="display:none;">
-      <div id="karte-stapel-kopf" style="display:none;">
-        <p id="karte-unterzeile" class="karte-unterzeile"></p>
-        <div id="karte-punkte" class="karte-punkte"></div>
-      </div>
+    <!-- Karte "Neuer Artikel": schwebt über dem Bereich, Hintergrund unscharf.
+         Einzeln über "+ Artikel hinzufügen", als Stapel aus Skillet und dem
+         Essensplan. Logik: artikel.js -->
+    <div id="tab-artikel" class="karte-ueberlagerung" style="display:none;">
+      <div class="karte karte-schwebend" role="dialog" aria-modal="true" aria-labelledby="karte-titel">
+        <div class="karte-kopf">
+          <h3 id="karte-titel">Neuer Artikel</h3>
+          <button type="button" class="karte-zu" onclick="karteZu()" aria-label="Schließen">✕</button>
+        </div>
+        <div id="karte-stapel-kopf" style="display:none;">
+          <p id="karte-unterzeile" class="karte-unterzeile"></p>
+          <div id="karte-punkte" class="karte-punkte"></div>
+        </div>
 
-      <div id="add-form" class="karte">
+        <div id="add-form">
         <div id="karte-doppelt" class="karte-doppelt" style="display:none;"></div>
 
         <label class="feld-label" for="item-name">Name</label>
@@ -211,12 +217,13 @@
         <button type="button" id="artikel-zweit" class="karte-knopf-umriss" onclick="karteZweitknopf()">Speichern &amp; nächster</button>
         <div class="karte-zentriert"><button type="button" id="karte-rest" class="link-knopf" style="display:none;" onclick="restSoUebernehmen()"></button></div>
         <p id="add-status"></p>
-      </div>
+        </div>
 
-      <div id="karte-zusammenfassung" class="karte" style="display:none;">
-        <b id="karte-zusammenfassung-titel"></b>
-        <ul id="karte-zusammenfassung-liste"></ul>
-        <button type="button" class="karte-knopf" onclick="karteSchliessen()">Fertig</button>
+        <div id="karte-zusammenfassung" style="display:none;">
+          <b id="karte-zusammenfassung-titel"></b>
+          <ul id="karte-zusammenfassung-liste"></ul>
+          <button type="button" class="karte-knopf" onclick="karteSchliessen()">Fertig</button>
+        </div>
       </div>
     </div>
 

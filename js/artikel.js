@@ -10,14 +10,30 @@
 // der Liste, sagt die Karte, was "Speichern" tut -- bei gleicher Einheit die
 // Menge erhöhen, bei anderer Einheit zusätzlich eintragen, ohne Menge nichts.
 //
-// Die Karte ist eine eigene Ansicht mit eigenem Verlaufs-Eintrag: die
-// Zurück-Taste des Handys führt zum Bereich zurück, nicht aus der App.
+// Die Karte schwebt über dem Bereich, aus dem sie geöffnet wurde (Hintergrund
+// unscharf), und hat einen eigenen Verlaufs-Eintrag: ✕ und die Zurück-Taste
+// des Handys schließen sie, ohne die App zu verlassen. Ein Tipp auf den
+// Hintergrund schließt bewusst NICHT -- sonst wäre Halbeingetipptes weg.
 
-    let karte = null;   // { modus, herkunft, titel, eintraege, index, ladenFuerAlle, feldId, angelegt }
+    let karte = null;   // { modus, basis, herkunft, titel, eintraege, index, ladenFuerAlle, feldId, angelegt }
 
     const KARTE_TITEL = { einzeln: 'Neuer Artikel', skillet: 'Aus Skillet', essen: 'Aus dem Essensplan' };
 
     function karteAktiv() { return karte !== null; }
+
+    // Der Bereich unter der Karte (Einkaufen oder Essensplan)
+    function karteBasis() { return karte && karte.basis ? karte.basis : 'liste'; }
+
+    function bereichUnterKarte() {
+      return (typeof aktuelleAnsicht !== 'undefined' && TAB_IDS.includes(aktuelleAnsicht)) ? aktuelleAnsicht : 'liste';
+    }
+
+    // ✕ wirkt wie die Zurück-Taste
+    function karteZu() { history.back(); }
+
+    function karteNachOben() {
+      document.getElementById('tab-artikel').scrollTop = 0;
+    }
 
     function karteTitel() {
       if (!karte) return KARTE_TITEL.einzeln;
@@ -154,7 +170,7 @@
     // --- Einzeln -------------------------------------------------------------
 
     function oeffneArtikelKarte() {
-      karte = { modus: 'einzeln', angelegt: [] };
+      karte = { modus: 'einzeln', basis: bereichUnterKarte(), angelegt: [] };
       document.getElementById('item-name').value = '';
       document.getElementById('item-menge').value = '';
       setzePrioritaet('normal');
@@ -220,6 +236,7 @@
       if (!zeilen.length) return false;
       karte = {
         modus: 'stapel',
+        basis: bereichUnterKarte(),
         herkunft: optionen.herkunft || 'skillet',
         titel: optionen.titel || '',
         feldId: optionen.feldId || null,
@@ -237,6 +254,7 @@
 
     function zeigeKartenModus() {
       const stapel = karte && karte.modus === 'stapel';
+      document.getElementById('karte-titel').textContent = karteTitel();
       document.getElementById('karte-stapel-kopf').style.display = stapel ? 'block' : 'none';
       document.getElementById('karte-laden-alle-zeile').style.display = stapel ? 'flex' : 'none';
       document.getElementById('karte-rest').style.display = 'none';
@@ -269,7 +287,7 @@
       restKnopf.textContent = `Restliche ${rest} so übernehmen, wie vorgeschlagen`;
       document.getElementById('add-status').textContent = '';
       karteGeaendert();
-      window.scrollTo(0, 0);
+      karteNachOben();
     }
 
     function ladenFuerAlleGeaendert() {
@@ -329,7 +347,7 @@
           <span class="karte-status">${escapeHtml(e.text || '')}</span>
         </li>`).join('');
       document.getElementById('karte-zusammenfassung').style.display = 'block';
-      window.scrollTo(0, 0);
+      karteNachOben();
       loadItems();
     }
 

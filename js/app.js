@@ -51,29 +51,34 @@
     let aktuelleAnsicht = 'start';
 
     function zeigeAnsicht(ansicht) {
-      // Die Karten-Ansicht (artikel.js) liegt eine Ebene über einem Bereich.
+      // Die Karte "Neuer Artikel" (artikel.js) schwebt über einem Bereich
+      // (Einkaufen oder Essensplan), der darunter unscharf sichtbar bleibt.
       // Ohne offene Karte (z.B. nach Neuladen und Vorwärts-Taste) gibt es dort
       // nichts zu zeigen -- dann die Einkaufsliste.
       if (ansicht === 'artikel' && !versuche('karteAktiv')) ansicht = 'liste';
       const istKarte = ansicht === 'artikel';
-      const istBereich = TAB_IDS.includes(ansicht);
-      document.getElementById('start-view').style.display = ansicht === 'start' ? 'flex' : 'none';
-      document.getElementById('bereich-kopf').style.display = (istBereich || istKarte) ? 'flex' : 'none';
-      document.getElementById('tab-artikel').style.display = istKarte ? 'block' : 'none';
+      const basis = istKarte ? (versuche('karteBasis') || 'liste') : ansicht;
+      const istBereich = TAB_IDS.includes(basis);
+      const kamVonKarte = aktuelleAnsicht === 'artikel';
+      document.getElementById('start-view').style.display = basis === 'start' ? 'flex' : 'none';
+      document.getElementById('bereich-kopf').style.display = istBereich ? 'flex' : 'none';
       TAB_IDS.forEach(id => {
-        document.getElementById('tab-' + id).style.display = id === ansicht ? 'block' : 'none';
+        document.getElementById('tab-' + id).style.display = id === basis ? 'block' : 'none';
       });
-      document.getElementById('tab-einstellungen').style.display = ansicht === 'einstellungen' ? 'block' : 'none';
+      document.getElementById('tab-einstellungen').style.display = basis === 'einstellungen' ? 'block' : 'none';
+      document.getElementById('tab-artikel').style.display = istKarte ? 'block' : 'none';
+      document.body.classList.toggle('karte-offen', istKarte);
 
-      if (istBereich) document.getElementById('bereich-titel').textContent = BEREICH_TITEL[ansicht];
-      if (istKarte) document.getElementById('bereich-titel').textContent = versuche('karteTitel') || 'Neuer Artikel';
+      if (istBereich) document.getElementById('bereich-titel').textContent = BEREICH_TITEL[basis];
       if (ansicht !== 'einstellungen') aktuelleAnsicht = ansicht;
       if (ansicht === 'start') versuche('beimStartZeigen');
       // Wer den Bereich neu betritt, landet in der Übersicht, nicht in der
       // zuletzt offenen Pflanze.
       if (ansicht === 'pflanzen') versuche('zeigePflanzenUebersicht');
-      window.scrollTo(0, 0);
+      // Karte auf- oder zumachen lässt den Bereich darunter, wo er war
+      if (!istKarte && !kamVonKarte) window.scrollTo(0, 0);
     }
+
 
     // --- Verlauf -----------------------------------------------------------
     //

@@ -26,8 +26,16 @@ const sichtbar = (p, id) => p.evaluate(id => getComputedStyle(document.getElemen
 
   console.log('=== Karte öffnen ===');
   await page.click('#toggle-add-link'); await page.waitForTimeout(200);
-  check('Eigene Ansicht mit Titel', [await sichtbar(page, 'tab-artikel'), await sichtbar(page, 'tab-liste'), await page.textContent('#bereich-titel')],
-    [true, false, 'Neuer Artikel']);
+  check('Karte schwebt über der Einkaufsliste', [await sichtbar(page, 'tab-artikel'), await sichtbar(page, 'tab-liste'),
+    await page.textContent('#karte-titel'), await page.textContent('#bereich-titel')], [true, true, 'Neuer Artikel', 'Einkaufen']);
+  check('Fest über allem, Hintergrund unscharf, Seite darunter gesperrt', await page.evaluate(() => {
+    const st = getComputedStyle(document.getElementById('tab-artikel'));
+    return [st.position, (st.backdropFilter || st.webkitBackdropFilter).includes('blur'), document.body.classList.contains('karte-offen')];
+  }), ['fixed', true, true]);
+  const rahmen = await page.locator('.karte-schwebend').boundingBox();
+  check('Rand links und rechts', rahmen.x >= 8 && rahmen.x + rahmen.width <= 312, true);
+  await page.mouse.click(160, 20); await page.waitForTimeout(150);
+  check('Tipp auf den Hintergrund schließt nicht', await sichtbar(page, 'tab-artikel'), true);
   check('Kein Stapel-Kopf, kein "für alle", keine Doppelt-Box', [await sichtbar(page, 'karte-stapel-kopf'), await sichtbar(page, 'karte-laden-alle-zeile'), await sichtbar(page, 'karte-doppelt')], [false, false, false]);
   check('Knöpfe einzeln', [await page.textContent('#artikel-speichern'), await page.textContent('#artikel-zweit')], ['Speichern', 'Speichern & nächster']);
   check('Wichtigkeit: Normal aktiv', await page.$$eval('.karte-pille.aktiv', p => p.map(x => x.dataset.wert)), ['normal']);
@@ -74,10 +82,11 @@ const sichtbar = (p, id) => p.evaluate(id => getComputedStyle(document.getElemen
   await page.goBack(); await page.waitForTimeout(250);
   check('Zurück-Taste schließt die Karte, Einkaufsliste bleibt', [await sichtbar(page, 'tab-liste'), await sichtbar(page, 'tab-artikel'), await sichtbar(page, 'start-view')], [true, false, false]);
   await page.click('#toggle-add-link'); await page.waitForTimeout(150);
-  await page.click('#zurueck-btn'); await page.waitForTimeout(250);
-  check('‹ schließt die Karte ebenso', [await sichtbar(page, 'tab-liste'), await sichtbar(page, 'tab-artikel')], [true, false]);
+  await page.click('.karte-zu'); await page.waitForTimeout(250);
+  check('✕ schließt die Karte ebenso, Seite wieder frei', [await sichtbar(page, 'tab-liste'), await sichtbar(page, 'tab-artikel'),
+    await page.evaluate(() => document.body.classList.contains('karte-offen'))], [true, false, false]);
   await page.click('#toggle-add-link'); await page.waitForTimeout(150);
-  await page.click('#settings-btn'); await page.waitForTimeout(250);
+  await page.evaluate(() => document.getElementById('settings-btn').click()); await page.waitForTimeout(250);
   check('Zahnrad aus der Karte: Einkaufslisten-Einstellungen offen', await page.$$eval('#tab-einstellungen .settings-group[open]', g => g.map(x => x.dataset.gruppe)), ['einkaufsliste']);
   await page.goBack(); await page.waitForTimeout(250);
   check('Zurück aus den Einstellungen: wieder die Karte', await sichtbar(page, 'tab-artikel'), true);

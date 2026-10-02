@@ -47,7 +47,7 @@ const neueArtikel = p => p.evaluate(() => window.__db.shopping_items.filter(i =>
 
   console.log('=== Link aus Skillet öffnet die Karten ===');
   let { page, errors } = await neueSeite(browser, { breite: 320, query: link });
-  check('Karten-Ansicht mit Titel', [await sichtbar(page, 'tab-artikel'), await page.textContent('#bereich-titel')], [true, 'Aus Skillet']);
+  check('Karte schwebt über der Einkaufsliste', [await sichtbar(page, 'tab-artikel'), await sichtbar(page, 'tab-liste'), await page.textContent('#karte-titel')], [true, true, 'Aus Skillet']);
   check('Rezept und Zähler', await page.textContent('#karte-unterzeile'), 'Gulasch nach Omas Art · Zutat 1 von 5');
   check('Fünf Punkte, der erste aktiv', await page.$$eval('.karte-punkt', p => p.map(x => x.classList.contains('jetzt'))), [true, false, false, false, false]);
   check('Erste Karte vorausgefüllt', await felder(page), { name:'Rindergulasch', menge:'400', einheit:'gramm', laden:'', abteilung:'', hinweise:['', ''] });

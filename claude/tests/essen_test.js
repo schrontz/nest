@@ -252,8 +252,8 @@ function check(label, actual, expected) {
   await page.waitForTimeout(350);
   // Seit Okt. 2026: "Auf die Liste" öffnet die Karten (artikel.js)
   check('Karten öffnen sich mit Gericht und Zähler',
-    [await page.textContent('#bereich-titel'), await page.textContent('#karte-unterzeile')],
-    ['Aus dem Essensplan', 'Pasta Hackfleisch · Zutat 1 von 3']);
+    [await page.textContent('#karte-titel'), await page.textContent('#karte-unterzeile'), await page.isVisible('#tab-essen')],
+    ['Aus dem Essensplan', 'Pasta Hackfleisch · Zutat 1 von 3', true]);
   await page.click('#karte-rest');
   await page.waitForTimeout(400);
   check('Zusammenfassung: Olivenöl stand schon drauf',
