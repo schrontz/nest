@@ -9,7 +9,8 @@
 
     const EINHEIT_LABELS = {
       stueck: "Stück", gramm: "g", kilogramm: "kg",
-      liter: "l", milliliter: "ml", packung: "Packung"
+      liter: "l", milliliter: "ml", packung: "Packung",
+      dose: "Dose", bund: "Bund", glas: "Glas", flasche: "Flasche", becher: "Becher"
     };
 
     let storesById = {};
@@ -557,7 +558,10 @@
       l: 'liter', liter: 'liter',
       ml: 'milliliter', milliliter: 'milliliter',
       stk: 'stueck', stueck: 'stueck', 'stück': 'stueck', st: 'stueck',
-      pck: 'packung', pkg: 'packung', packung: 'packung', packungen: 'packung'
+      pck: 'packung', pkg: 'packung', packung: 'packung', packungen: 'packung',
+      dose: 'dose', dosen: 'dose', bund: 'bund', 'bünde': 'bund',
+      glas: 'glas', 'gläser': 'glas', glaeser: 'glas',
+      flasche: 'flasche', flaschen: 'flasche', becher: 'becher'
     };
 
     function zerlegeZeile(zeile) {

@@ -55,6 +55,18 @@ const sichtbar = (p, id) => p.evaluate(id => getComputedStyle(document.getElemen
   check('Keine Fehler', errors, []);
   await page.close();
 
+  console.log('\n=== Neue Einheiten (Dose, Bund, Glas, Flasche, Becher) ===');
+  ({ page, errors } = await neueSeite(browser, { query: '?einkauf=' + encodeURIComponent('1 Bund Petersilie\n2 Dosen gehackte Tomaten\n1 Glas Kapern\n2 Flaschen Wasser\n1 Becher Sahne') }));
+  await page.click('#mehrere-form button');
+  await page.waitForTimeout(400);
+  check('Einheiten werden erkannt', await page.evaluate(() => window.__fakeData.shopping_items.slice(0, 5).map(i => [i.name, i.menge, i.einheit]).reverse()),
+    [['Petersilie', 1, 'bund'], ['gehackte Tomaten', 2, 'dose'], ['Kapern', 1, 'glas'], ['Wasser', 2, 'flasche'], ['Sahne', 1, 'becher']]);
+  check('Auswahlfeld kennt die neuen Einheiten', await page.evaluate(() => [...document.querySelectorAll('#item-einheit option')].map(o => o.value).slice(-5)),
+    ['dose', 'bund', 'glas', 'flasche', 'becher']);
+  check('Liste zeigt "Petersilie – 1 Bund"', (await page.textContent('#item-list-offen')).replace(/\s+/g, ' ').includes('Petersilie – 1 Bund'), true);
+  check('Keine Fehler', errors, []);
+  await page.close();
+
   console.log('\n=== Neuladen ohne Link ===');
   ({ page, errors } = await neueSeite(browser));
   check('Start wie immer', await sichtbar(page, 'start-view'), true);

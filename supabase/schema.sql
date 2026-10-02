@@ -41,6 +41,14 @@ begin
 end
 $$;
 
+-- Einkaufseinheiten (Okt. 2026, für die Übergabe aus Skillet). Einzeln
+-- ergänzt, damit bestehende Datenbanken denselben Stand bekommen.
+alter type public.mengeneinheit add value if not exists 'dose';
+alter type public.mengeneinheit add value if not exists 'bund';
+alter type public.mengeneinheit add value if not exists 'glas';
+alter type public.mengeneinheit add value if not exists 'flasche';
+alter type public.mengeneinheit add value if not exists 'becher';
+
 
 -- ============ 2. Tabellen ============
 -- Reihenfolge wegen der Fremdschluessel: households zuerst, dann alles,
