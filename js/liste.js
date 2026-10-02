@@ -4,7 +4,6 @@
 // bewusst unverändert: so ist nachweisbar, dass beim Aufteilen keine Zeile
 // angefasst wurde.
 
-    let editingItemId = null;
     let allItems = [];
 
     const EINHEIT_LABELS = {
@@ -568,86 +567,15 @@
       }
     }
 
-    function einheitOptions(selected) {
-      return Object.entries(EINHEIT_LABELS).map(([val, label]) =>
-        `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
-      ).join('');
-    }
 
-    function storeOptions(selectedId) {
-      const leer = `<option value="">– kein Laden –</option>`;
-      const optionen = Object.entries(storesById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(name)}</option>`
-      ).join('');
-      return leer + optionen;
-    }
 
-    function departmentOptions(selectedId) {
-      const leer = `<option value="">– keine Abteilung –</option>`;
-      const optionen = Object.entries(departmentsById).map(([id, name]) =>
-        `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(name)}</option>`
-      ).join('');
-      return leer + optionen;
-    }
 
+    // Bearbeiten öffnet dieselbe schwebende Karte wie das Anlegen (artikel.js)
     function startEdit(id) {
-      editingItemId = id;
-      render();
-    }
-
-    function cancelEdit() {
-      editingItemId = null;
-      render();
-    }
-
-    async function saveEdit(id) {
-      const name = document.getElementById('edit-name-' + id).value.trim();
-      const menge = document.getElementById('edit-menge-' + id).value;
-      const einheit = document.getElementById('edit-einheit-' + id).value;
-      const storeId = document.getElementById('edit-store-' + id).value;
-      const departmentId = document.getElementById('edit-department-' + id).value;
-      const priority = document.getElementById('edit-priority-' + id).value;
-
-      if (!name) return;
-
-      const { error } = await client
-        .from('shopping_items')
-        .update({
-          name: name,
-          menge: menge ? parseFloat(menge) : null,
-          einheit: einheit,
-          store_id: storeId || null,
-          department_id: departmentId || null,
-          priority: priority
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error("Fehler beim Speichern:", error);
-        return;
-      }
-      editingItemId = null;
-      loadItems();
+      oeffneBearbeitenKarte(id);
     }
 
     function renderItem(item) {
-      if (item.id === editingItemId) {
-        return `
-          <li class="editing">
-            <input type="text" id="edit-name-${item.id}" value="${escapeHtml(item.name)}">
-            <input type="number" id="edit-menge-${item.id}" value="${item.menge ?? ''}" step="0.1" placeholder="Menge">
-            <select id="edit-einheit-${item.id}">${einheitOptions(item.einheit)}</select>
-            <select id="edit-store-${item.id}">${storeOptions(item.store_id)}</select>
-            <select id="edit-department-${item.id}">${departmentOptions(item.department_id)}</select>
-            <select id="edit-priority-${item.id}">${prioritaetOptions(item.priority)}</select>
-            <div class="edit-actions">
-              <button onclick="saveEdit('${item.id}')">Speichern</button>
-              <button onclick="cancelEdit()">Abbrechen</button>
-            </div>
-          </li>
-        `;
-      }
-
       const editable = item.status === 'offen';
       const nameClass = editable ? 'item-name clickable' : 'item-name';
       const nameClick = editable ? ` onclick="startEdit('${item.id}')"` : '';

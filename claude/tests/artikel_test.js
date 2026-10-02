@@ -91,6 +91,30 @@ const sichtbar = (p, id) => p.evaluate(id => getComputedStyle(document.getElemen
   await page.goBack(); await page.waitForTimeout(250);
   check('Zurück aus den Einstellungen: wieder die Karte', await sichtbar(page, 'tab-artikel'), true);
 
+  console.log('\n=== Bestehenden Artikel bearbeiten ===');
+  await page.click('.karte-zu'); await page.waitForTimeout(300);   // Karte (aus den Einstellungen zurück) -> Einkaufsliste
+  check('Wieder in der Einkaufsliste', [await sichtbar(page, 'tab-liste'), await sichtbar(page, 'tab-artikel')], [true, false]);
+  const vorher = await page.evaluate(() => window.__db.shopping_items.length);
+  await page.click(`[onclick="startEdit('i2')"]`); await page.waitForTimeout(250);
+  check('Tipp auf den Namen öffnet die schwebende Karte', [await sichtbar(page, 'tab-artikel'), await sichtbar(page, 'tab-liste'), await page.textContent('#karte-titel')],
+    [true, true, 'Artikel bearbeiten']);
+  check('Vorausgefüllt mit dem Eintrag', await page.evaluate(() => [document.getElementById('item-name').value, document.getElementById('item-menge').value,
+    document.getElementById('item-einheit').value, document.getElementById('item-priority').value]), ['Olivenöl', '1', 'liter', 'normal']);
+  check('Knöpfe: Speichern und Abbrechen', [await page.textContent('#artikel-speichern'), await page.textContent('#artikel-zweit')], ['Speichern', 'Abbrechen']);
+  check('Der Eintrag gilt nicht als Doppeltes von sich selbst', await page.evaluate(() =>
+    getComputedStyle(document.getElementById('karte-doppelt')).display === 'none' || document.getElementById('karte-doppelt').textContent.includes('ändert nur diesen Eintrag')), true);
+  await page.fill('#item-menge', '2'); await page.click('.karte-pille[data-wert="wichtig"]');
+  await page.click('#artikel-zweit'); await page.waitForTimeout(250);
+  check('Abbrechen ändert nichts', await page.evaluate(() => window.__db.shopping_items.filter(i => i.id === 'i2').map(i => [i.menge, i.priority])), [[1, 'normal']]);
+  check('Abbrechen schließt die Karte', await sichtbar(page, 'tab-artikel'), false);
+  await page.click(`[onclick="startEdit('i2')"]`); await page.waitForTimeout(250);
+  await page.fill('#item-menge', '2'); await page.click('.karte-pille[data-wert="wichtig"]');
+  await page.click('#artikel-speichern'); await page.waitForTimeout(350);
+  check('Speichern ändert den Eintrag', await page.evaluate(() => window.__db.shopping_items.filter(i => i.id === 'i2').map(i => [i.menge, i.einheit, i.priority])), [[2, 'liter', 'wichtig']]);
+  check('Kein neuer Eintrag angelegt', await page.evaluate(() => window.__db.shopping_items.length), vorher);
+  check('Karte zu, Meldung in der Liste', [await sichtbar(page, 'tab-artikel'), await page.textContent('#liste-status')], [false, '„Olivenöl“ gespeichert.']);
+  check('Kein altes Inline-Formular mehr', await page.$$eval('#item-list-offen li.editing', l => l.length), 0);
+
   check('Keine Fehler', errors, []);
   await browser.close();
   console.log(failures === 0 ? '\n>>> ALLE TESTS BESTANDEN' : `\n>>> ${failures} FEHLGESCHLAGEN`);

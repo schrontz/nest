@@ -17,7 +17,7 @@
 
     let karte = null;   // { modus, basis, herkunft, titel, eintraege, index, ladenFuerAlle, feldId, angelegt }
 
-    const KARTE_TITEL = { einzeln: 'Neuer Artikel', skillet: 'Aus Skillet', essen: 'Aus dem Essensplan' };
+    const KARTE_TITEL = { einzeln: 'Neuer Artikel', bearbeiten: 'Artikel bearbeiten', skillet: 'Aus Skillet', essen: 'Aus dem Essensplan' };
 
     function karteAktiv() { return karte !== null; }
 
@@ -37,7 +37,8 @@
 
     function karteTitel() {
       if (!karte) return KARTE_TITEL.einzeln;
-      return karte.modus === 'stapel' ? (KARTE_TITEL[karte.herkunft] || 'Zutaten übernehmen') : KARTE_TITEL.einzeln;
+      if (karte.modus === 'stapel') return KARTE_TITEL[karte.herkunft] || 'Zutaten übernehmen';
+      return KARTE_TITEL[karte.modus] || KARTE_TITEL.einzeln;
     }
 
     function zeigeKartenAnsicht() {
@@ -103,7 +104,8 @@
 
     function offenerTreffer(name) {
       const schluessel = normKurz(name);
-      const ausListe = allItems.find(i => i.status === 'offen' && normKurz(i.name) === schluessel);
+      const selbst = karte && karte.modus === 'bearbeiten' ? karte.itemId : null;
+      const ausListe = allItems.find(i => i.status === 'offen' && i.id !== selbst && normKurz(i.name) === schluessel);
       if (ausListe) return ausListe;
       // Im Stapel gerade Angelegtes zählt mit -- allItems lädt erst am Ende neu
       return karte && karte.angelegt ? karte.angelegt.find(i => normKurz(i.name) === schluessel) : null;
@@ -127,9 +129,10 @@
       const knopf = karte && karte.modus === 'stapel' ? '„Übernehmen“' : '„Speichern“';
       const vorhanden = `${escapeHtml(plan.offen.name)}${plan.offen.menge ? ' – ' + mengeText(plan.offen.menge, plan.offen.einheit) : ''}`;
       let was = '';
-      if (plan.art === 'erhoehen') was = `${knopf} setzt die Menge auf ${mengeText(plan.neueMenge, plan.einheit)}.`;
-      if (plan.art === 'schon-da') was = `${knopf} lässt es dabei.`;
-      if (plan.art === 'zusaetzlich') was = `Andere Einheit – ${knopf} trägt es zusätzlich ein.`;
+      if (karte && karte.modus === 'bearbeiten') was = '„Speichern“ ändert nur diesen Eintrag.';
+      else if (plan.art === 'erhoehen') was = `${knopf} setzt die Menge auf ${mengeText(plan.neueMenge, plan.einheit)}.`;
+      else if (plan.art === 'schon-da') was = `${knopf} lässt es dabei.`;
+      else if (plan.art === 'zusaetzlich') was = `Andere Einheit – ${knopf} trägt es zusätzlich ein.`;
       box.innerHTML = `<b>Steht schon auf der Liste: ${vorhanden}</b>${was}`;
       box.style.display = 'block';
     }
@@ -214,6 +217,37 @@
       }
     }
 
+    // --- Bearbeiten -----------------------------------------------------------
+
+    function oeffneBearbeitenKarte(id) {
+      const item = allItems.find(i => i.id === id);
+      if (!item) return;
+      karte = { modus: 'bearbeiten', basis: bereichUnterKarte(), itemId: id, angelegt: [] };
+      fuelleKarte(item);
+      setzeHinweise('', '');
+      document.getElementById('add-status').textContent = '';
+      document.getElementById('liste-status').textContent = '';
+      zeigeKartenModus();
+      zeigeKartenAnsicht();
+      karteGeaendert();
+    }
+
+    async function speichereBearbeitung() {
+      const e = leseKarte();
+      const statusEl = document.getElementById('add-status');
+      if (!e.name) { statusEl.textContent = 'Bitte einen Namen eingeben.'; return; }
+      const { error } = await client.from('shopping_items').update({
+        name: e.name, menge: e.menge, einheit: e.einheit,
+        store_id: e.store_id, department_id: e.department_id, priority: e.priority
+      }).eq('id', karte.itemId);
+      if (error) { statusEl.textContent = 'Fehler: ' + error.message; return; }
+      versteckeVorschlaege();
+      document.getElementById('liste-status').textContent = `„${e.name}“ gespeichert.`;
+      karte = null;
+      loadItems();
+      history.back();
+    }
+
     // --- Stapel --------------------------------------------------------------
 
     function vorbelegen(z) {
@@ -261,8 +295,9 @@
       document.getElementById('add-form').style.display = 'block';
       document.getElementById('karte-zusammenfassung').style.display = 'none';
       document.getElementById('karte-doppelt').style.display = 'none';
+      const bearbeiten = karte && karte.modus === 'bearbeiten';
       document.getElementById('artikel-speichern').textContent = stapel ? 'Übernehmen & weiter' : 'Speichern';
-      document.getElementById('artikel-zweit').textContent = stapel ? 'Überspringen' : 'Speichern & nächster';
+      document.getElementById('artikel-zweit').textContent = stapel ? 'Überspringen' : (bearbeiten ? 'Abbrechen' : 'Speichern & nächster');
     }
 
     function zeigeStapelKarte() {
@@ -364,10 +399,12 @@
 
     function karteHauptknopf() {
       if (karte && karte.modus === 'stapel') stapelUebernehmen();
+      else if (karte && karte.modus === 'bearbeiten') speichereBearbeitung();
       else speichereEinzeln(false);
     }
 
     function karteZweitknopf() {
       if (karte && karte.modus === 'stapel') stapelUeberspringen();
+      else if (karte && karte.modus === 'bearbeiten') karteZu();
       else speichereEinzeln(true);
     }
