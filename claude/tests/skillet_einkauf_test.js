@@ -127,6 +127,17 @@ const neueArtikel = p => p.evaluate(() => window.__db.shopping_items.filter(i =>
   check('Keine Fehler', errors, []);
   await page.close();
 
+  console.log('\n=== Obergrenze: höchstens 50 Karten, Titel gekürzt ===');
+  const viele = Array.from({ length: 120 }, (_, i) => `${i + 1} g Zutat${i + 1}`).join('\n');
+  ({ page, errors } = await neueSeite(browser, { query: '?einkauf=' + encodeURIComponent(viele) + '&rezept=' + encodeURIComponent('X'.repeat(200)) }));
+  const unter = await page.textContent('#karte-unterzeile');
+  check('Unterzeile nennt die Grenze', unter.endsWith('Zutat 1 von 50 (nur die ersten 50, 70 weggelassen)'), true);
+  check('Titel auf 60 Zeichen gekürzt', unter.split(' · ')[0].length, 60);
+  await page.click('#karte-rest'); await page.waitForTimeout(500);
+  check('Zusammenfassung mit 50 Einträgen', await page.$$eval('#karte-zusammenfassung-liste li', l => l.length), 50);
+  check('Keine Fehler', errors, []);
+  await page.close();
+
   await browser.close();
   console.log(failures === 0 ? '\n>>> ALLE TESTS BESTANDEN' : `\n>>> ${failures} FEHLGESCHLAGEN`);
 })();

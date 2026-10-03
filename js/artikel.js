@@ -265,14 +265,23 @@
     }
 
     // zeilenText: eine Zutat je Zeile. optionen: { herkunft: 'skillet'|'essen', titel, feldId }
+    // Obergrenze für einen Stapel: Der Skillet-Link lässt sich von außen
+    // bauen, ein Link mit Hunderten Zeilen soll nicht Hunderte Karten öffnen.
+    // Ein echtes Rezept liegt weit darunter. Gleiches gilt für den Titel.
+    const STAPEL_MAX = 50;
+    const STAPEL_TITEL_MAX = 60;
+
     function starteKartenStapel(zeilenText, optionen = {}) {
-      const zeilen = String(zeilenText || '').split('\n').map(zerlegeZeile).filter(Boolean);
-      if (!zeilen.length) return false;
+      const alle = String(zeilenText || '').split('\n').map(zerlegeZeile).filter(Boolean);
+      if (!alle.length) return false;
+      const zeilen = alle.slice(0, STAPEL_MAX);
+      const titel = String(optionen.titel || '');
       karte = {
         modus: 'stapel',
         basis: bereichUnterKarte(),
         herkunft: optionen.herkunft || 'skillet',
-        titel: optionen.titel || '',
+        titel: titel.length > STAPEL_TITEL_MAX ? titel.slice(0, STAPEL_TITEL_MAX - 1) + '…' : titel,
+        weggelassen: alle.length - zeilen.length,
         feldId: optionen.feldId || null,
         eintraege: zeilen.map(vorbelegen),
         index: 0,
@@ -312,7 +321,8 @@
       setzeHinweise(ladenHinweis, e.ausVerlauf && e.department_id ? 'wie zuletzt' : '');
 
       document.getElementById('karte-unterzeile').textContent =
-        `${k.titel ? k.titel + ' · ' : ''}Zutat ${k.index + 1} von ${n}`;
+        `${k.titel ? k.titel + ' · ' : ''}Zutat ${k.index + 1} von ${n}`
+        + (k.weggelassen ? ` (nur die ersten ${n}, ${k.weggelassen} weggelassen)` : '');
       document.getElementById('karte-punkte').innerHTML = k.eintraege.map((x, i) =>
         `<span class="karte-punkt ${i < k.index ? 'erledigt' : ''} ${i === k.index ? 'jetzt' : ''}"></span>`).join('');
 
