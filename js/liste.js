@@ -690,13 +690,99 @@
       const gekauft = alleGekauft.filter(item => !istAelterAlsFrist(kaufdatum(item)));
       gekauftAusgeblendet = alleGekauft.length - gekauft.length;
 
-      document.getElementById('item-list-offen').innerHTML = renderGroupedByStore(offen);
+      document.getElementById('item-list-offen').innerHTML = renderOffen(offen);
       document.getElementById('item-list-gekauft').innerHTML = gekauft.map(renderItem).join('');
+      renderLadenModus();
 
       updateToggleLabel();
     }
 
+    // --- "Ich bin gerade bei …" --------------------------------------------
+    //
+    // Dreht die Liste vom Laden aus um: zuerst, was für diesen Laden geplant
+    // ist, dann alles ohne Laden, darunter "Woanders geplant: hier
+    // mitnehmen?". Nur eine andere Sortierung -- abgehakt wird wie immer.
+    // Der Modus wird nicht gespeichert: beim nächsten Öffnen ist man meist
+    // nicht mehr im Laden.
+    //
+    // Zusätzlich das Banner: Wer ohne Modus einen Artikel eines Ladens
+    // abhakt, steht vermutlich gerade dort. Einmal je Laden, bis die App neu
+    // geöffnet wird, und nur, wenn woanders überhaupt etwas offen ist.
+    let ladenModus = null;          // store_id oder null
+    let ladenWahlOffen = false;
+    let ladenBanner = null;         // store_id, für den das Banner steht
+    const ladenBannerGezeigt = new Set();
+
+    function woandersOffen(storeId) {
+      return allItems.filter(i => i.status === 'offen' && i.store_id && i.store_id !== storeId);
+    }
+
+    function renderOffen(offen) {
+      if (!ladenModus) return renderGroupedByStore(offen);
+      const hier = offen.filter(i => i.store_id === ladenModus || !i.store_id);
+      const woanders = offen.filter(i => i.store_id && i.store_id !== ladenModus);
+      const name = storesById[ladenModus] || 'diesem Laden';
+      return (hier.length ? renderGroupedByStore(hier)
+          : `<p class="store-address laden-leer">Für ${escapeHtml(name)} steht nichts auf der Liste.</p>`)
+        + (woanders.length ? `
+          <div class="woanders">Woanders geplant: hier mitnehmen?<small>Abhaken geht wie immer.</small></div>
+          <div class="woanders-liste">${renderGroupedByStore(woanders)}</div>` : '');
+    }
+
+    function renderLadenModus() {
+      const el = document.getElementById('laden-modus');
+      if (!el) return;
+      if (!allStores.length) { el.innerHTML = ''; return; }
+      let html = '';
+      if (ladenBanner && !ladenModus) {
+        const n = woandersOffen(ladenBanner).length;
+        if (n) {
+          html += `
+            <div class="laden-banner" role="status">
+              <span>Bei <b>${escapeHtml(storesById[ladenBanner] || '')}</b>? ${n === 1 ? '1 Sache ist' : n + ' Sachen sind'} woanders geplant.</span>
+              <button type="button" class="ja" onclick="setzeLadenModus('${ladenBanner}')">Zeigen</button>
+              <button type="button" class="zu" onclick="schliesseLadenBanner()" aria-label="Hinweis schließen">✕</button>
+            </div>`;
+        }
+      }
+      if (ladenModus) {
+        html += `<button type="button" class="laden-knopf an" onclick="setzeLadenModus(null)"
+                   aria-label="Modus „bei ${escapeHtml(storesById[ladenModus] || '')}“ beenden">📍 Bei ${escapeHtml(storesById[ladenModus] || 'Laden')} ✕</button>`;
+      } else {
+        html += `<button type="button" class="laden-knopf" onclick="toggleLadenWahl()" aria-expanded="${ladenWahlOffen}">📍 Ich bin gerade bei …${ladenWahlOffen ? ' ▴' : ''}</button>`;
+        if (ladenWahlOffen) {
+          const laeden = allStores.slice().sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+          html += `<div class="laden-chips">${laeden.map(st =>
+            `<button type="button" onclick="setzeLadenModus('${st.id}')">${escapeHtml(st.name)}</button>`).join('')}</div>`;
+        }
+      }
+      el.innerHTML = html;
+    }
+
+    function toggleLadenWahl() {
+      ladenWahlOffen = !ladenWahlOffen;
+      renderLadenModus();
+    }
+
+    function setzeLadenModus(storeId) {
+      ladenModus = storeId && storesById[storeId] ? storeId : null;
+      ladenWahlOffen = false;
+      ladenBanner = null;
+      render();
+    }
+
+    function schliesseLadenBanner() {
+      ladenBanner = null;
+      renderLadenModus();
+    }
+
     async function toggleStatus(id, isChecked) {
+      const item = allItems.find(i => i.id === id);
+      if (isChecked && !ladenModus && item && item.store_id && !ladenBannerGezeigt.has(item.store_id)
+          && woandersOffen(item.store_id).some(i => i.id !== id)) {
+        ladenBannerGezeigt.add(item.store_id);
+        ladenBanner = item.store_id;
+      }
       const neuerStatus = isChecked ? 'gekauft' : 'offen';
       const { error } = await client
         .from('shopping_items')

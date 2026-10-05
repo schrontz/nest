@@ -14,6 +14,7 @@ cd /tmp && for t in *_test.js; do echo "$t: $(node $t 2>&1 | grep -v agent-proxy
 - Die Supabase-Attrappen stecken in den Suiten selbst (`STUB` in `essen_test.js` wird von `essen_pool_test.js` und `froster_test.js` mitbenutzt, `render_test.js` von `full_test`, `bild_test`, `bild_fix_test`). Neue Abfrage-Methoden im Client (zuletzt `limit`, `in`) müssen dort ergänzt werden.
 - `artikel_test.js` prüft die Karten-Ansicht einzeln: Vorschlag/„wie zuletzt“, Speichern & nächster, Doppeltes (erhöhen, zusätzlich), Zurück-Taste, Zahnrad. Nutzt die Attrappe aus `essen_test.js`.
 - `skillet_einkauf_test.js` prüft die Übergabe aus Skillet als Kartenstapel: vorausgefüllt, „Laden für alle“, Überspringen, Erhöhen, „Restliche so übernehmen“, Zusammenfassung, Zurück/Vorwärts, Link vor der Anmeldung, alte Übergaben verfallen. Nutzt die Attrappe aus `essen_test.js`.
+- `laden_test.js` prüft „Ich bin gerade bei …“ und das Banner nach dem Abhaken.
 - `froster_portionen_test.js` prüft Portionen beim Einfrieren, die Bündelung und „+ Etwas einfrieren“.
 - `pflanzen_test.js` prüft Übersicht nach Zimmer, Kacheln, Tropfen, „💧 alle“ und die Detailansicht.
 - `block2_test.js` prüft Aufgaben-Kachel (Vorlauf) und das Ausblenden von Gekauftem/Erledigtem.
