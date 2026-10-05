@@ -56,7 +56,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 
 ## Aktueller Stand
 
-- `main` = siehe `git log`. 02.10. (eigene Session zu Skillet): Artikel anlegen und bearbeiten als schwebende Karte, Übergabe aus Skillet per Link, Einheiten Dose/Bund/Glas/Flasche/Becher; auf Android getestet, iPhone offen. 03.10.: Obergrenze 50 Karten je Stapel (Link von außen baubar). Davor 30.09. `bc51dba` „Zurück in den Froster“, 29.09. Froster-Portionen (auf dem Handy bestätigt).
+- `main` = siehe `git log`. 02.10. (eigene Session zu Skillet): Artikel anlegen und bearbeiten als schwebende Karte, Übergabe aus Skillet per Link, Einheiten Dose/Bund/Glas/Flasche/Becher; auf Android getestet, iPhone offen. 03.10.: Obergrenze 50 Karten je Stapel (Link von außen baubar). Ebenfalls 03.10.: „Ich bin gerade bei …“ in der Einkaufsliste (`ladenModus` in `liste.js`, nur Sortierung, nicht gespeichert) samt Banner nach dem Abhaken; Prüfpunkt Ende Oktober, ob es genutzt wird. Davor 30.09. `bc51dba` „Zurück in den Froster“, 29.09. Froster-Portionen (auf dem Handy bestätigt).
 - Davor `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
 - Auf dem Handy bestätigt: Block 1 samt Froster und Portionen, Foto-Fix, Pflanzen. Offen: Block 2, „Zurück in den Froster“, die Karten auf dem iPhone.
 - Ältester offener Punkt: Push auf dem iPhone der Freundin. Jan bittet dafür um einen manuellen Test-Push (Edge Function `send-due-notifications` gezielt auslösen).
