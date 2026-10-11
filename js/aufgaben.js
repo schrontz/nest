@@ -143,7 +143,7 @@
       // Verschieben nur bei offenen Aufgaben mit Termin -- ohne Termin gibt es
       // nichts zu verschieben.
       const verschiebeKnopf = chore.status === 'offen' && chore.due_date
-        ? `<button type="button" class="verschiebe-knopf" onclick="oeffneVerschieben('${chore.id}')" aria-label="${titel} verschieben" title="Verschieben">⏭</button>` : '';
+        ? `<button type="button" class="verschiebe-knopf" onclick="oeffneVerschieben('${chore.id}')" aria-label="${titel} verschieben">⏭ Verschieben</button>` : '';
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
@@ -153,8 +153,10 @@
             ${titleLine}${verschoben}
             ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
           </span>
-          ${verschiebeKnopf}
-          <button type="button" class="loesch-knopf" onclick="deleteChore('${chore.id}')" aria-label="${titel} löschen" title="Löschen">🗑</button>
+          <div class="aufgabe-aktionen">
+            ${verschiebeKnopf}
+            <button type="button" class="loesch-knopf" onclick="deleteChore('${chore.id}')" aria-label="${titel} löschen">🗑 Löschen</button>
+          </div>
         </li>
       `;
     }

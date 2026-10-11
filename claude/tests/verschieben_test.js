@@ -2,7 +2,7 @@
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 const path = require('path');
 const fs = require('fs');
-const src = fs.readFileSync('/tmp/essen_test.js', 'utf8');
+const src = fs.readFileSync(path.join(__dirname, 'essen_test.js'), 'utf8');
 let STUB = eval(src.match(/const STUB = (`[\s\S]*?`);/)[1]);
 const ch = (id, title, due, v, u, extra = {}) => Object.assign({ id, title, due_date: due, assigned_to: 'u1', status: 'offen', created_by: 'u1',
   household_id: 'h1', room_id: null, recurrence_interval_value: v, recurrence_interval_unit: u, completed_at: null, completed_by: null,
@@ -14,6 +14,7 @@ STUB = STUB.replace("rooms: [], plants: [], plant_care_tasks: [], chores: [],", 
   ch('c3', 'Paket abholen', '2026-10-11', null, null),
   ch('c4', 'Keller', null, null, null),
   ch('c5', 'Fenster', '2026-10-13', 1, 'monat', { verschoben_von: '2026-10-12' }),
+  ch('c7', 'Abzugshaubenfettfilterreinigungsmittelnachfüllpackung kaufen', '2027-01-09', 3, 'monat'),
   ch('c6', 'Erledigtes', '2026-10-10', 1, 'woche', { status: 'erledigt', completed_at: '2026-10-10T09:00:00Z' })
 ])},`);
 
@@ -46,10 +47,14 @@ function check(label, actual, expected) {
 
   console.log('=== Zeilen ===');
   check('⏭ nur bei offenen Aufgaben mit Termin', await page.$$eval('#chore-list li', l => l.map(li => [li.innerText.split(/\s[–-]\s|\n/)[0].trim(), !!li.querySelector('.verschiebe-knopf')])),
-    [['Bad putzen', true], ['Müll rausbringen', true], ['Paket abholen', true], ['Fenster', true], ['Keller', false], ['Erledigtes', false]]);
-  check('Löschen ist ein Mülleimer mit Beschriftung', await page.$eval('#chore-list li .loesch-knopf', b => [b.textContent.trim(), b.getAttribute('aria-label')]), ['🗑', 'Bad putzen löschen']);
+    [['Bad putzen', true], ['Müll rausbringen', true], ['Paket abholen', true], ['Fenster', true], ['Abzugshaubenfettfilterreinigungsmittelnachfüllpackung kaufen', true], ['Keller', false], ['Erledigtes', false]]);
+  check('Löschen ist ein Mülleimer mit Beschriftung', await page.$eval('#chore-list li .loesch-knopf', b => [b.textContent.trim(), b.getAttribute('aria-label')]), ['🗑 Löschen', 'Bad putzen löschen']);
   check('Verschobenes zeigt den ursprünglichen Termin', await (await zeile('Fenster')).asElement().$eval('.verschoben-hinweis', e => e.textContent), '⏭ verschoben, eigentlich Mo 12.10.');
   check('Kein Überlauf auf 320 px', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  check('Fund vom 11.10.: Knöpfe bleiben auch bei sehr langen Wörtern in der Karte',
+    await page.$$eval('#chore-list li', l => l.every(li => { const r = li.getBoundingClientRect();
+      return [...li.querySelectorAll('button')].every(b => { const k = b.getBoundingClientRect(); return k.right <= r.right + 0.5 && k.left >= r.left - 0.5; }); })), true);
+  check('Erledigte Aufgabe: nur Löschen', await (await zeile('Erledigtes')).asElement().$$eval('.aufgabe-aktionen button', b => b.map(x => x.textContent.trim())), ['🗑 Löschen']);
 
   console.log('\n=== Wöchentlich, heute fällig ===');
   await (await knopf('Müll', '.verschiebe-knopf')).click(); await page.waitForTimeout(150);

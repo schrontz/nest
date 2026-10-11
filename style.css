@@ -1738,28 +1738,41 @@ body.karte-offen { overflow: hidden; }
 .woanders-liste .laden-kopf { opacity: 0.8; }
 .laden-leer { margin: 0 0 0.5rem; }
 
-/* ---------- Aufgaben: Verschieben und Löschen als Symbole ---------- */
-#chore-list li .verschiebe-knopf,
-#chore-list li .loesch-knopf {
-  flex: none;
-  width: 2.2rem;
-  height: 2.2rem;
-  padding: 0;
-  border-radius: 8px;
-  font-size: 1rem;
-  line-height: 1;
+/* ---------- Aufgaben: Verschieben und Löschen unter dem Text ---------- */
+/* Die Knöpfe stehen in einer eigenen Zeile, damit der Text die volle Breite
+   hat -- lange Wörter wie "Abzugshaubenfettfilter" schoben sie sonst aus der
+   Karte. Trennung mit Bindestrich über hyphens (braucht lang="de"). */
+#chore-list li:not(.editing) { flex-wrap: wrap; }
+
+#chore-list li .item-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
-#chore-list li .verschiebe-knopf {
-  margin-left: auto;
-  background: #eef3f0;
-  color: var(--color-secondary-dark);
+#chore-list .aufgabe-aktionen {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.1rem;
 }
 
-#chore-list li .verschiebe-knopf:hover { background: #dfeae4; color: var(--color-secondary-dark); }
-#chore-list li .verschiebe-knopf + .loesch-knopf { margin-left: 0; }
-#chore-list li .loesch-knopf { background: transparent; }
-#chore-list li .loesch-knopf:hover { background: #fbe9e7; }
+#chore-list .aufgabe-aktionen button {
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  min-height: 2.2rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#chore-list .aufgabe-aktionen .verschiebe-knopf { background: #eef3f0; color: var(--color-secondary-dark); }
+#chore-list .aufgabe-aktionen .verschiebe-knopf:hover { background: #dfeae4; color: var(--color-secondary-dark); }
+#chore-list .aufgabe-aktionen .loesch-knopf { background: transparent; color: #b5473a; }
+#chore-list .aufgabe-aktionen .loesch-knopf:hover { background: #fbe9e7; color: #b5473a; }
 
 .verschoben-hinweis { color: #2f7d5a; font-weight: 600; }
 
