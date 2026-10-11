@@ -228,6 +228,23 @@
       </div>
     </div>
 
+    <div id="verschieben-karte" class="karte-ueberlagerung" style="display:none;">
+      <div class="karte karte-schwebend" role="dialog" aria-modal="true" aria-labelledby="verschieben-titel">
+        <div class="karte-kopf">
+          <h3 id="verschieben-titel">Verschieben</h3>
+          <button type="button" class="karte-zu" onclick="schliesseVerschieben()" aria-label="Schließen">✕</button>
+        </div>
+        <p id="verschieben-unterzeile" class="karte-unterzeile"></p>
+        <label class="feld-label">Neuer Termin</label>
+        <div id="verschieben-chips" class="verschieben-chips"></div>
+        <input type="date" id="verschieben-datum" style="display:none;" onchange="waehleVerschiebenDatum(this)" aria-label="Anderes Datum">
+        <p id="verschieben-info" class="verschieben-info"></p>
+        <button type="button" id="verschieben-los" class="karte-knopf" onclick="verschiebeAufgabe()">Verschieben</button>
+        <button type="button" id="verschieben-aufheben" class="karte-knopf-umriss" style="display:none;" onclick="verschiebungAufheben()"></button>
+        <p id="verschieben-status" class="store-address"></p>
+      </div>
+    </div>
+
     <div id="tab-aufgaben" class="tab-panel" style="display:none;">
       <div class="add-card">
         <button type="button" id="toggle-chore-add-link" class="add-toggle-card" onclick="toggleChoreAddForm()">+ Aufgabe hinzufügen</button>

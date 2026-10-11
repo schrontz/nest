@@ -43,6 +43,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 - `basis.js` hat `AUSBLENDEN_NACH_TAGEN` (7): Gekauftes und erledigte Aufgaben werden danach nur ausgeblendet, nie gelöscht, weil die Vorschläge beim Tippen von der Historie leben. `shopping_items.gekauft_am` setzt ein Trigger.
 - Aufgaben-Kachel zählt nur Überfälliges, Heutiges und was im Vorlauf liegt (`istInnerhalbVorlauf`); ohne Termin zählt nicht.
 - **Pflanzen:** Übersicht als Kacheln je Zimmer (`renderPlantList`), Detail über `detailPlantId`/`oeffnePflanze`, `zeigeAnsicht('pflanzen')` setzt auf die Übersicht zurück. Die alte Karte (`li.plant-card`) lebt nur noch in der Detailansicht.
+- **Aufgaben verschieben** (`aufgaben.js`, Karte `#verschieben-karte` mit eigenem Verlaufs-Eintrag `{verschieben:true}`): `due_date` bekommt den neuen Termin, `chores.verschoben_von` den ursprünglichen; `reset_due_recurring_chores` rechnet von `coalesce(verschoben_von, due_date)` weiter und leert die Spalte. Liste, Kachel und Push brauchen deshalb keine Sonderlogik. Datum von Hand ändern leert `verschoben_von`. Löschen in der Aufgabenzeile ist ein 🗑.
 - `start.js` umhüllt `loadItems`, `loadChores`, `loadCareTasks`, `loadMealPlan`, `loadFreezer` und zeichnet danach die Kacheln und den Hinweis über den Kacheln.
 - Realtime nur für Änderungen vom anderen Gerät. INSERT/UPDATE mit Haushaltsfilter, DELETE ungefiltert (RLS liefert nur den Primärschlüssel).
 - `li button` in `style.css` macht jeden Listen-Knopf grau: im Essensplan mit `#meal-plan-list …` überschreiben.
@@ -57,6 +58,7 @@ Ohne Token: Dateien mit Zielpfad ausliefern, Jan lädt über die Weboberfläche 
 ## Aktueller Stand
 
 - `main` = siehe `git log`. 02.10. (eigene Session zu Skillet): Artikel anlegen und bearbeiten als schwebende Karte, Übergabe aus Skillet per Link, Einheiten Dose/Bund/Glas/Flasche/Becher; auf Android getestet, iPhone offen. 03.10.: Obergrenze 50 Karten je Stapel (Link von außen baubar). Ebenfalls 03.10.: „Ich bin gerade bei …“ in der Einkaufsliste (`ladenModus` in `liste.js`, nur Sortierung, nicht gespeichert) samt Banner nach dem Abhaken; Prüfpunkt Ende Oktober, ob es genutzt wird. Davor 30.09. `bc51dba` „Zurück in den Froster“, 29.09. Froster-Portionen (auf dem Handy bestätigt).
+- 11.10.: Aufgaben einmalig verschieben (Migration `chores_verschoben_von`, live per Fingerprint geprüft), Löschen als 🗑. Push geht seit dieser Session über die Repo-Freigabe der Sitzung (`add_repo`), ein eigener Token ist dann nicht nötig.
 - Davor `058a744`. Am 28.09. live gegangen: Foto-Fix, Pool Stufe 1, Froster und Reste-Ziel (Block 1), Aufgaben-Kachel mit Vorlauf und Ausblenden nach 7 Tagen (Block 2), Pflanzen-Kacheln nach Zimmer mit Detailansicht (aus Block 3). Migrationen: `freezer_items`, `shopping_items.gekauft_am` samt Trigger.
 - Auf dem Handy bestätigt: Block 1 samt Froster und Portionen, Foto-Fix, Pflanzen. Offen: Block 2, „Zurück in den Froster“, die Karten auf dem iPhone.
 - Ältester offener Punkt: Push auf dem iPhone der Freundin. Jan bittet dafür um einen manuellen Test-Push (Edge Function `send-due-notifications` gezielt auslösen).

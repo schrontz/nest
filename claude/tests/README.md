@@ -10,10 +10,11 @@ cd /tmp && for t in *_test.js; do echo "$t: $(node $t 2>&1 | grep -v agent-proxy
 
 - Playwright liegt global unter `/home/claude/.npm-global/lib/node_modules/playwright`, Chromium unter `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Ändert sich die Umgebung, Pfad in allen Suiten per `sed` anpassen.
 - Erwartung: Jede Suite endet mit „ALLE TESTS BESTANDEN“ bzw. „Alles grün“.
-- **Bekanntes Rauschen:** `full_test` (2) und `bild_test` (1) zählen `ERR_NAME_NOT_RESOLVED` als JS-Fehler, weil die Sandbox Schriften/CDN nicht lädt. Echte Fehler stehen als Zeilen mit `FAIL` da: `node x_test.js | grep -c '^FAIL'` muss 0 sein.
+- **Bekanntes Rauschen:** `full_test` (2) und `bild_test` (1) zählen `ERR_NAME_NOT_RESOLVED` als JS-Fehler, weil die Sandbox Schriften/CDN nicht lädt. Seit 11.10. meldet `full_test` zusätzlich einen Überlauf auf dem Startbildschirm bei 375 px (Knopf ragt 7 px heraus) — mit altem Code identisch, also vorbestehend, im Backlog notiert. Echte Fehler stehen als Zeilen mit `FAIL` da: `node x_test.js | grep -c '^FAIL'` muss 0 sein.
 - Die Supabase-Attrappen stecken in den Suiten selbst (`STUB` in `essen_test.js` wird von `essen_pool_test.js` und `froster_test.js` mitbenutzt, `render_test.js` von `full_test`, `bild_test`, `bild_fix_test`). Neue Abfrage-Methoden im Client (zuletzt `limit`, `in`) müssen dort ergänzt werden.
 - `artikel_test.js` prüft die Karten-Ansicht einzeln: Vorschlag/„wie zuletzt“, Speichern & nächster, Doppeltes (erhöhen, zusätzlich), Zurück-Taste, Zahnrad. Nutzt die Attrappe aus `essen_test.js`.
 - `skillet_einkauf_test.js` prüft die Übergabe aus Skillet als Kartenstapel: vorausgefüllt, „Laden für alle“, Überspringen, Erhöhen, „Restliche so übernehmen“, Zusammenfassung, Zurück/Vorwärts, Link vor der Anmeldung, alte Übergaben verfallen. Nutzt die Attrappe aus `essen_test.js`.
+- `verschieben_test.js` prüft das einmalige Verschieben von Aufgaben (Rhythmus bleibt), „Aufheben“, die Zurück-Taste und den Mülleimer.
 - `laden_test.js` prüft „Ich bin gerade bei …“ und das Banner nach dem Abhaken.
 - `froster_portionen_test.js` prüft Portionen beim Einfrieren, die Bündelung und „+ Etwas einfrieren“.
 - `pflanzen_test.js` prüft Übersicht nach Zimmer, Kacheln, Tropfen, „💧 alle“ und die Detailansicht.

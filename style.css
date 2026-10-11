@@ -1737,3 +1737,49 @@ body.karte-offen { overflow: hidden; }
 
 .woanders-liste .laden-kopf { opacity: 0.8; }
 .laden-leer { margin: 0 0 0.5rem; }
+
+/* ---------- Aufgaben: Verschieben und Löschen als Symbole ---------- */
+#chore-list li .verschiebe-knopf,
+#chore-list li .loesch-knopf {
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#chore-list li .verschiebe-knopf {
+  margin-left: auto;
+  background: #eef3f0;
+  color: var(--color-secondary-dark);
+}
+
+#chore-list li .verschiebe-knopf:hover { background: #dfeae4; color: var(--color-secondary-dark); }
+#chore-list li .verschiebe-knopf + .loesch-knopf { margin-left: 0; }
+#chore-list li .loesch-knopf { background: transparent; }
+#chore-list li .loesch-knopf:hover { background: #fbe9e7; }
+
+.verschoben-hinweis { color: #2f7d5a; font-weight: 600; }
+
+.verschieben-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.2rem;
+}
+
+.verschieben-chips .karte-pille { flex: none; }
+.verschieben-chips .verschieben-mehr { grid-column: 1 / -1; }
+#verschieben-datum { display: block; width: 100%; box-sizing: border-box; margin-top: 0.4rem; }
+
+.verschieben-info {
+  margin: 0.7rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #eef6f1;
+  font-size: 0.86rem;
+}
+
+#verschieben-status:empty { display: none; }

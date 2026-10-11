@@ -155,6 +155,7 @@ create table if not exists public.chores (
   completed_at timestamp with time zone,
   completed_by uuid,
   priority text default 'normal'::text not null,
+  verschoben_von date,
   constraint chores_pkey primary key (id),
   constraint chores_household_id_fkey foreign key (household_id) references public.households(id) on delete cascade,
   constraint chores_room_id_fkey foreign key (room_id) references public.rooms(id) on delete set null,
@@ -167,6 +168,10 @@ create table if not exists public.chores (
   constraint chores_recurrence_unit_check check (((recurrence_interval_unit is null) or (recurrence_interval_unit = any (array['tag'::text, 'woche'::text, 'monat'::text, 'jahr'::text])))),
   constraint chores_recurrence_consistent_check check (((recurrence_interval_value is null) = (recurrence_interval_unit is null)))
 );
+
+comment on column public.chores.verschoben_von is
+  'Ursprünglicher Termin einer einmalig verschobenen wiederkehrenden Aufgabe. '
+  'Der Reset rechnet von hier aus weiter, damit der Rhythmus bleibt.';
 
 create table if not exists public.plants (
   id uuid default gen_random_uuid() not null,
@@ -583,7 +588,8 @@ begin
   update public.chores
   set
     status = 'offen',
-    due_date = public.next_due_after_today(due_date, recurrence_interval_value, recurrence_interval_unit)
+    due_date = public.next_due_after_today(coalesce(verschoben_von, due_date), recurrence_interval_value, recurrence_interval_unit),
+    verschoben_von = null
   where status = 'erledigt'
     and recurrence_interval_value is not null;
 

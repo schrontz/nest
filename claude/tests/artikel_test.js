@@ -32,7 +32,7 @@ const sichtbar = (p, id) => p.evaluate(id => getComputedStyle(document.getElemen
     const st = getComputedStyle(document.getElementById('tab-artikel'));
     return [st.position, (st.backdropFilter || st.webkitBackdropFilter).includes('blur'), document.body.classList.contains('karte-offen')];
   }), ['fixed', true, true]);
-  const rahmen = await page.locator('.karte-schwebend').boundingBox();
+  const rahmen = await page.locator('#tab-artikel .karte-schwebend').boundingBox();
   check('Rand links und rechts', rahmen.x >= 8 && rahmen.x + rahmen.width <= 312, true);
   await page.mouse.click(160, 20); await page.waitForTimeout(150);
   check('Tipp auf den Hintergrund schließt nicht', await sichtbar(page, 'tab-artikel'), true);

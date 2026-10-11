@@ -60,6 +60,12 @@
       const basis = istKarte ? (versuche('karteBasis') || 'liste') : ansicht;
       const istBereich = TAB_IDS.includes(basis);
       const kamVonKarte = aktuelleAnsicht === 'artikel';
+      // Die Verschieben-Karte (aufgaben.js) hat einen eigenen Verlaufs-Eintrag.
+      // Führt die Zurück-Taste aus ihr heraus, nur die Karte schließen -- die
+      // Liste darunter bleibt, wo sie war.
+      const warVerschieben = typeof verschiebenId !== 'undefined' && verschiebenId !== null
+        && !(history.state && history.state.verschieben);
+      if (warVerschieben) versuche('verschiebenAusblenden');
       document.getElementById('start-view').style.display = basis === 'start' ? 'flex' : 'none';
       document.getElementById('bereich-kopf').style.display = istBereich ? 'flex' : 'none';
       TAB_IDS.forEach(id => {
@@ -76,7 +82,7 @@
       // zuletzt offenen Pflanze.
       if (ansicht === 'pflanzen') versuche('zeigePflanzenUebersicht');
       // Karte auf- oder zumachen lässt den Bereich darunter, wo er war
-      if (!istKarte && !kamVonKarte) window.scrollTo(0, 0);
+      if (!istKarte && !kamVonKarte && !warVerschieben) window.scrollTo(0, 0);
     }
 
 

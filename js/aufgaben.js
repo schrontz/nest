@@ -138,16 +138,23 @@
       const titleLine = chore.status === 'erledigt'
         ? `${titel} – erledigt${completedDate ? ' am ' + completedDate : ''}${completedName ? ' von ' + escapeHtml(completedName) : ''}`
         : `${chip}${titel}${chore.due_date ? ` – fällig ${formatDueDate(chore.due_date)}${urgencyLabel}` : ''}`;
+      const verschoben = chore.status === 'offen' && chore.verschoben_von
+        ? `<br><small class="verschoben-hinweis">⏭ verschoben, eigentlich ${tagKurz(chore.verschoben_von)}</small>` : '';
+      // Verschieben nur bei offenen Aufgaben mit Termin -- ohne Termin gibt es
+      // nichts zu verschieben.
+      const verschiebeKnopf = chore.status === 'offen' && chore.due_date
+        ? `<button type="button" class="verschiebe-knopf" onclick="oeffneVerschieben('${chore.id}')" aria-label="${titel} verschieben" title="Verschieben">⏭</button>` : '';
 
       return `
         <li class="${urgencyClass}" style="${chore.status === 'erledigt' ? 'text-decoration: line-through; color: gray;' : ''}">
           <input type="checkbox" ${chore.status === 'erledigt' ? 'checked' : ''}
                  onchange="toggleChoreStatus('${chore.id}', this.checked)">
           <span class="${nameClass}"${nameClick}>
-            ${titleLine}
+            ${titleLine}${verschoben}
             ${metaParts.length ? `<br><small class="store-address">${metaParts.join(' · ')}</small>` : ''}
           </span>
-          <button onclick="deleteChore('${chore.id}')">löschen</button>
+          ${verschiebeKnopf}
+          <button type="button" class="loesch-knopf" onclick="deleteChore('${chore.id}')" aria-label="${titel} löschen" title="Löschen">🗑</button>
         </li>
       `;
     }
@@ -175,9 +182,14 @@
 
       if (!title) return;
 
+      // Wer das Datum von Hand ändert, legt den Rhythmus neu fest -- eine
+      // offene Verschiebung ist damit erledigt.
+      const vorher = allChores.find(c => c.id === id);
+      const datumGeaendert = !vorher || (vorher.due_date || '') !== (dueDate || '');
       const { error } = await client
         .from('chores')
         .update({
+          ...(datumGeaendert && vorher && vorher.verschoben_von ? { verschoben_von: null } : {}),
           title: title,
           due_date: dueDate || null,
           assigned_to: assignedTo || null,
@@ -193,6 +205,169 @@
         return;
       }
       editingChoreId = null;
+      loadChores();
+    }
+
+    // --- Verschieben -----------------------------------------------------
+    //
+    // Einmalig auf einen anderen Tag, ohne den Rhythmus zu ändern: due_date
+    // bekommt den neuen Termin (Liste, Kachel und Push richten sich danach),
+    // der ursprüngliche steht in verschoben_von. Der nächtliche Reset rechnet
+    // von dort aus weiter (reset_due_recurring_chores). Wird zweimal
+    // verschoben, bleibt der erste ursprüngliche Termin stehen. Einmalige
+    // Aufgaben bekommen einfach ein neues Datum.
+    let verschiebenId = null;
+
+    const TAGE_KURZ = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    function tagKurz(datum) {
+      const d = new Date(datum + 'T00:00:00');
+      return `${TAGE_KURZ[(d.getDay() + 6) % 7]} ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
+    }
+
+    function plusTage(datum, n) {
+      const d = new Date(datum + 'T00:00:00');
+      d.setDate(d.getDate() + n);
+      return datumStr(d);
+    }
+
+    function plusIntervall(datum, wert, einheit) {
+      const d = new Date(datum + 'T00:00:00');
+      if (einheit === 'tag') d.setDate(d.getDate() + wert);
+      else if (einheit === 'woche') d.setDate(d.getDate() + 7 * wert);
+      else if (einheit === 'monat') d.setMonth(d.getMonth() + wert);
+      else if (einheit === 'jahr') d.setFullYear(d.getFullYear() + wert);
+      return datumStr(d);
+    }
+
+    // Wann es nach dem verschobenen Termin weitergeht: der erste Termin im
+    // alten Rhythmus nach dem neuen Datum -- so rechnet auch der Reset.
+    function naechsterImRhythmus(chore, neu) {
+      const wert = chore.recurrence_interval_value, einheit = chore.recurrence_interval_unit;
+      if (!wert || !einheit) return null;
+      let d = plusIntervall(chore.verschoben_von || chore.due_date, wert, einheit);
+      for (let i = 0; i < 1000 && d <= neu; i++) d = plusIntervall(d, wert, einheit);
+      return d;
+    }
+
+    function verschiebenVorschlaege(chore) {
+      const heute = datumStr(new Date());
+      const ab = chore.due_date > heute ? chore.due_date : heute;
+      const kandidaten = [plusTage(ab, 1), plusTage(ab, 2), plusTage(ab, 3)];
+      // Der nächste Montag: der häufigste Fall nach einem Wochenende weg.
+      const d = new Date(ab + 'T00:00:00');
+      kandidaten.push(plusTage(ab, ((8 - d.getDay()) % 7) || 7));
+      return [...new Set(kandidaten)].sort();
+    }
+
+    function oeffneVerschieben(id) {
+      const chore = allChores.find(c => c.id === id);
+      if (!chore || !chore.due_date) return;
+      verschiebenId = id;
+      const heute = datumStr(new Date());
+      const morgen = plusTage(heute, 1);
+      const vorschlaege = verschiebenVorschlaege(chore);
+      const recurrence = formatRecurrence(chore.recurrence_interval_value, chore.recurrence_interval_unit);
+      const faellig = chore.due_date === heute ? 'fällig heute' : `fällig ${tagKurz(chore.due_date)}`;
+      document.getElementById('verschieben-unterzeile').textContent =
+        [chore.title, faellig, recurrence].filter(Boolean).join(' · ');
+      document.getElementById('verschieben-chips').innerHTML = vorschlaege.map((t, i) =>
+        `<button type="button" class="karte-pille${i === 0 ? ' aktiv' : ''}" data-datum="${t}" onclick="waehleVerschieben(this)">${t === morgen ? 'Morgen' : tagKurz(t)}</button>`
+      ).join('') + `<button type="button" class="karte-pille verschieben-mehr" onclick="zeigeVerschiebenDatum()">Datum …</button>`;
+      const feld = document.getElementById('verschieben-datum');
+      feld.style.display = 'none';
+      feld.min = plusTage(heute, 0);
+      feld.value = '';
+      document.getElementById('verschieben-aufheben').style.display = chore.verschoben_von ? 'block' : 'none';
+      document.getElementById('verschieben-aufheben').textContent = chore.verschoben_von
+        ? `Verschiebung aufheben (zurück auf ${tagKurz(chore.verschoben_von)})` : '';
+      document.getElementById('verschieben-status').textContent = '';
+      setzeVerschiebenZiel(vorschlaege[0]);
+      history.pushState({ nest: 'aufgaben', verschieben: true }, '');
+      document.getElementById('verschieben-karte').style.display = 'block';
+      document.body.classList.add('karte-offen');
+    }
+
+    function verschiebenOffen() { return verschiebenId !== null; }
+
+    // Schließt die Karte ohne Verlaufsschritt -- aufgerufen aus zeigeAnsicht,
+    // wenn die Zurück-Taste den Eintrag der Karte schon verlassen hat.
+    function verschiebenAusblenden() {
+      verschiebenId = null;
+      document.getElementById('verschieben-karte').style.display = 'none';
+      document.body.classList.remove('karte-offen');
+    }
+
+    function schliesseVerschieben() {
+      if (history.state && history.state.verschieben) history.back();
+      else verschiebenAusblenden();
+    }
+
+    function setzeVerschiebenZiel(datum) {
+      const chore = allChores.find(c => c.id === verschiebenId);
+      if (!chore) return;
+      document.getElementById('verschieben-karte').dataset.ziel = datum;
+      document.getElementById('verschieben-los').textContent = `Auf ${tagKurz(datum)} verschieben`;
+      const danach = naechsterImRhythmus(chore, datum);
+      document.getElementById('verschieben-info').innerHTML = danach
+        ? `Nur dieses Mal. Danach geht es im alten Rhythmus weiter: <b>${tagKurz(danach)}</b>`
+        : 'Einmalige Aufgabe: Sie bekommt einfach den neuen Termin.';
+    }
+
+    function waehleVerschieben(knopf) {
+      document.querySelectorAll('#verschieben-chips .karte-pille').forEach(b => b.classList.toggle('aktiv', b === knopf));
+      document.getElementById('verschieben-datum').style.display = 'none';
+      setzeVerschiebenZiel(knopf.dataset.datum);
+    }
+
+    function zeigeVerschiebenDatum() {
+      const feld = document.getElementById('verschieben-datum');
+      feld.style.display = 'block';
+      feld.focus();
+      if (typeof feld.showPicker === 'function') { try { feld.showPicker(); } catch (e) { /* nicht überall erlaubt */ } }
+    }
+
+    function waehleVerschiebenDatum(feld) {
+      if (!feld.value) return;
+      const mehr = document.querySelector('#verschieben-chips .verschieben-mehr');
+      document.querySelectorAll('#verschieben-chips .karte-pille').forEach(b => b.classList.toggle('aktiv', b === mehr));
+      mehr.textContent = tagKurz(feld.value);
+      setzeVerschiebenZiel(feld.value);
+    }
+
+    async function verschiebeAufgabe() {
+      const chore = allChores.find(c => c.id === verschiebenId);
+      const ziel = document.getElementById('verschieben-karte').dataset.ziel;
+      const statusEl = document.getElementById('verschieben-status');
+      if (!chore || !ziel) return;
+      if (ziel < datumStr(new Date())) { statusEl.textContent = 'Das Datum liegt in der Vergangenheit.'; return; }
+      const wiederkehrend = !!chore.recurrence_interval_value;
+      const aenderung = { due_date: ziel };
+      if (wiederkehrend) {
+        // Zurück auf den ursprünglichen Tag heißt: nicht mehr verschoben.
+        const ursprung = chore.verschoben_von || chore.due_date;
+        aenderung.verschoben_von = ziel === ursprung ? null : ursprung;
+      }
+      const { error } = await client.from('chores').update(aenderung).eq('id', chore.id);
+      if (error) {
+        console.error("Fehler beim Verschieben:", error);
+        statusEl.textContent = "Fehler: " + error.message;
+        return;
+      }
+      schliesseVerschieben();
+      loadChores();
+    }
+
+    async function verschiebungAufheben() {
+      const chore = allChores.find(c => c.id === verschiebenId);
+      if (!chore || !chore.verschoben_von) return;
+      const { error } = await client.from('chores')
+        .update({ due_date: chore.verschoben_von, verschoben_von: null }).eq('id', chore.id);
+      if (error) {
+        document.getElementById('verschieben-status').textContent = "Fehler: " + error.message;
+        return;
+      }
+      schliesseVerschieben();
       loadChores();
     }
 
