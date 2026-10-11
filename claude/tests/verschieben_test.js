@@ -54,6 +54,7 @@ function check(label, actual, expected) {
   check('Fund vom 11.10.: Knöpfe bleiben auch bei sehr langen Wörtern in der Karte',
     await page.$$eval('#chore-list li', l => l.every(li => { const r = li.getBoundingClientRect();
       return [...li.querySelectorAll('button')].every(b => { const k = b.getBoundingClientRect(); return k.right <= r.right + 0.5 && k.left >= r.left - 0.5; }); })), true);
+  check('Verschieben und Löschen stehen auf 320 px nebeneinander', await page.$$eval('#chore-list .aufgabe-aktionen', a => a.every(x => { const b = [...x.querySelectorAll('button')].map(k => Math.round(k.getBoundingClientRect().top)); return b.every(t => t === b[0]); })), true);
   check('Erledigte Aufgabe: nur Löschen', await (await zeile('Erledigtes')).asElement().$$eval('.aufgabe-aktionen button', b => b.map(x => x.textContent.trim())), ['🗑 Löschen']);
 
   console.log('\n=== Wöchentlich, heute fällig ===');

@@ -1751,20 +1751,27 @@ body.karte-offen { overflow: hidden; }
   hyphens: auto;
 }
 
+/* Block mit Inline-Blöcken statt Flex: Das Durchstreichen erledigter
+   Aufgaben (text-decoration am li) wird an Inline-Blöcke nicht vererbt --
+   an Flex-Elemente schon, dann wäre auch "Löschen" durchgestrichen. */
 #chore-list .aufgabe-aktionen {
   flex-basis: 100%;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.25rem;
-  margin-top: 0.1rem;
+  display: block;
+  text-align: right;
+  white-space: nowrap;
+  /* Darf in den rechten Innenabstand der Karte ragen -- so passen beide
+     Knöpfe auch auf 320 px nebeneinander. */
+  margin: 0.1rem -0.5rem 0 0;
 }
 
 #chore-list .aufgabe-aktionen button {
-  margin: 0;
-  padding: 0.35rem 0.6rem;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0 0 0.2rem;
+  padding: 0.35rem 0.5rem;
   min-height: 2.2rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
 }
